@@ -70,7 +70,7 @@ foreach (var endpoint in config.Endpoints)
         var match = regex.Match(context.Request.Path.Value ?? "");
         if (match.Success && paramNames.Count > 0)
         {
-            pathParams = new Dictionary<string, string>();
+            pathParams = [];
             for (var i = 0; i < paramNames.Count; i++)
                 pathParams[paramNames[i]] = match.Groups[i + 1].Value;
         }
