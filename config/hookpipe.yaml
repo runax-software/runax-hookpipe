@@ -1,0 +1,58 @@
+endpoints:
+  - id: github-push
+    path: /github/push
+    methods:
+      - POST
+    validation:
+      signature:
+        header: X-Hub-Signature-256
+        secret_env: GITHUB_WEBHOOK_SECRET
+        algorithm: hmac-sha256
+    sink: stdout-dev
+    message:
+      include_body: true
+      include_headers: true
+      header_filter:
+        - X-GitHub-Event
+        - X-GitHub-Delivery
+
+  - id: stripe-events
+    path: /stripe/events
+    methods:
+      - POST
+    validation:
+      signature:
+        header: Stripe-Signature
+        secret_env: STRIPE_WEBHOOK_SECRET
+        algorithm: stripe-v1
+    sink: stdout-dev
+    message:
+      include_body: true
+
+  - id: coolify-deploy
+    path: /coolify/deploy
+    methods:
+      - POST
+    validation:
+      auth:
+        type: bearer
+        token_env: COOLIFY_WEBHOOK_TOKEN
+    sink: stdout-dev
+    message:
+      include_body: true
+      include_headers: true
+
+  - id: custom-ingest
+    path: /ingest/{source}
+    methods:
+      - POST
+      - PUT
+    sink: stdout-dev
+    message:
+      include_body: true
+      metadata:
+        source: "{source}"
+
+sinks:
+  - id: stdout-dev
+    type: stdout

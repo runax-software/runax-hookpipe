@@ -17,4 +17,8 @@
     <ProjectReference Include="..\Hookpipe.Sinks.RabbitMq\Hookpipe.Sinks.RabbitMq.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Controllers\" />
+  </ItemGroup>
+
 </Project>
