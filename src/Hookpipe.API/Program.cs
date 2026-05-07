@@ -2,6 +2,7 @@ using System.Text.RegularExpressions;
 using Hookpipe.Core.Config;
 using Hookpipe.Core.Services;
 using Hookpipe.Core.Sinks;
+using Hookpipe.Core.Validation;
 using Hookpipe.Sinks.Stdout;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -9,6 +10,11 @@ var builder = WebApplication.CreateBuilder(args);
 var configPath = builder.Configuration["Hookpipe:ConfigPath"] ?? "config/hookpipe.yaml";
 var config = ConfigLoader.Load(configPath);
 var sinks = new Dictionary<string, ISink>();
+var validators = new Dictionary<string, IValidator>
+{
+    ["bearer"] = new BearerTokenValidator(),
+    ["hmac-sha256"] = new HmacSha256Validator(),
+};
 
 foreach (var sinkConfig in config.Sinks)
 {
@@ -42,6 +48,23 @@ foreach (var endpoint in config.Endpoints)
         {
             context.Response.StatusCode = 405;
             return;
+        }
+
+        if (endpoint.Validation is not null)
+        {
+            IValidator? validator = null;
+
+            if (endpoint.Validation.Auth is not null)
+                validators.TryGetValue(endpoint.Validation.Auth.Type, out validator);
+            else if (endpoint.Validation.Signature is not null)
+                validators.TryGetValue(endpoint.Validation.Signature.Algorithm, out validator);
+
+            if (validator is null || !await validator.ValidateAsync(context, endpoint.Validation))
+            {
+                context.Response.StatusCode = 401;
+                await context.Response.WriteAsJsonAsync(new { error = "unauthorized" });
+                return;
+            }
         }
 
         Dictionary<string, string>? pathParams = null;
