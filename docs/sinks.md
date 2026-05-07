@@ -49,10 +49,39 @@ sinks:
 - Message `ContentType` is `application/json`
 - Message `MessageId` is set to the envelope ID
 
+### Kafka
+
+Produces messages to a Kafka topic with idempotent delivery and `Acks.All`.
+
+**Type:** `kafka`
+
+```yaml
+sinks:
+    - id: kafka-events
+      type: kafka
+      settings:
+          brokers_env: KAFKA_BROKERS
+          topic: webhook-events
+```
+
+**Settings:**
+
+| Key           | Description                              | Default         |
+| ------------- | ---------------------------------------- | --------------- |
+| `brokers_env` | Env var name holding the broker list     | `KAFKA_BROKERS` |
+| `topic`       | Kafka topic to produce to (**required**) | —               |
+
+**Behavior:**
+
+- Uses `Acks.All` and idempotent producer for reliable delivery
+- Message key is set to the endpoint ID (ensures ordering per endpoint)
+- Message value is the JSON-serialized envelope
+- Adds `hookpipe.message.id` and `hookpipe.endpoint.id` as Kafka headers
+- Flushes pending messages on shutdown (5s timeout)
+
 ## Planned sinks
 
 - **SQS** — AWS Simple Queue Service
-- **Kafka** — Apache Kafka
 
 ## Creating a custom sink
 

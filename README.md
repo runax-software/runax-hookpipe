@@ -77,8 +77,8 @@ See [Configuration](docs/configuration.md) for full reference.
 | -------- | ---------- | --------- |
 | Stdout   | `stdout`   | Available |
 | RabbitMQ | `rabbitmq` | Available |
+| Kafka    | `kafka`    | Available |
 | SQS      | `sqs`      | Planned   |
-| Kafka    | `kafka`    | Planned   |
 
 See [Sinks](docs/sinks.md) for details.
 

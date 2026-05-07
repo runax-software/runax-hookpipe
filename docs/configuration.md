@@ -70,6 +70,21 @@ sinks:
 
 The exchange is declared as `topic` and `durable` on startup.
 
+#### Kafka
+
+Produces messages to a Kafka topic.
+
+```yaml
+sinks:
+    - id: kafka-events
+      type: kafka
+      settings:
+          brokers_env: KAFKA_BROKERS # Env var holding the broker list
+          topic: webhook-events # Kafka topic (required)
+```
+
+Uses idempotent producer with `Acks.All`. Message key is the endpoint ID.
+
 ## Validation
 
 Optional per-endpoint request validation. Only one method per endpoint.
@@ -110,5 +125,6 @@ Handles signatures with or without prefix (e.g. `sha256=<hex>`).
 | `Logging__LogLevel__Hookpipe`             | Hookpipe log level                                  | `Information`          |
 | `Logging__LogLevel__Microsoft.AspNetCore` | ASP.NET log level                                   | `Warning`              |
 | `RABBITMQ_URL`                            | RabbitMQ connection string (if using RabbitMQ sink) | —                      |
+| `KAFKA_BROKERS`                           | Kafka broker list (if using Kafka sink)             | —                      |
 
 Secrets referenced by `secret_env`, `token_env`, and `url_env` in config are resolved from environment variables at runtime.
