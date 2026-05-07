@@ -1,7 +1,7 @@
 ---
 name: Sink Request
 about: Request support for a new message sink
-labels: enhancement, sink
+labels: sink, enhancement
 ---
 
 ## Sink type
