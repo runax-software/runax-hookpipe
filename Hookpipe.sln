@@ -4,6 +4,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Hookpipe.API", "src\Hookpip
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Hookpipe.Core", "src\Hookpipe.Core\Hookpipe.Core.csproj", "{D22DF24A-8E6A-45CA-870D-4E4E636DAB74}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Hookpipe.Core.Tests", "tests\Hookpipe.Core.Tests\Hookpipe.Core.Tests.csproj", "{8CED2691-A183-45B5-AEE3-C5B04F5C0E8A}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tests", "Tests", "{C6916B8E-18B9-4914-8D83-8D8FD45248D5}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -18,7 +22,12 @@ Global
 		{D22DF24A-8E6A-45CA-870D-4E4E636DAB74}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{D22DF24A-8E6A-45CA-870D-4E4E636DAB74}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{D22DF24A-8E6A-45CA-870D-4E4E636DAB74}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8CED2691-A183-45B5-AEE3-C5B04F5C0E8A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8CED2691-A183-45B5-AEE3-C5B04F5C0E8A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8CED2691-A183-45B5-AEE3-C5B04F5C0E8A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8CED2691-A183-45B5-AEE3-C5B04F5C0E8A}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
+		{8CED2691-A183-45B5-AEE3-C5B04F5C0E8A} = {C6916B8E-18B9-4914-8D83-8D8FD45248D5}
 	EndGlobalSection
 EndGlobal

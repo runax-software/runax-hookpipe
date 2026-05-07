@@ -9,27 +9,27 @@ public sealed class MessageEnvelope
     /// <summary>
     /// Unique message ID (UUID).
     /// </summary>
-    public required string Id { get; set; }
+    public required string Id { get; init; }
 
     /// <summary>
     /// ID of the endpoint that received this webhook.
     /// </summary>
-    public required string EndpointId { get; set; }
+    public required string EndpointId { get; init; }
 
     /// <summary>
     /// Timestamp when the request was received.
     /// </summary>
-    public DateTimeOffset ReceivedAt { get; set; }
+    public DateTimeOffset ReceivedAt { get; init; }
 
     /// <summary>
     /// HTTP method of the incoming request.
     /// </summary>
-    public required string Method { get; set; }
+    public required string Method { get; init; }
 
     /// <summary>
     /// Request path (e.g. "/github/push").
     /// </summary>
-    public required string Path { get; set; }
+    public required string Path { get; init; }
 
     /// <summary>
     /// Remote IP address of the caller.
