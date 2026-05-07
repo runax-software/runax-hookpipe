@@ -1,10 +1,9 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Hookpipe.Core.Models;
-using Hookpipe.Core.Sinks;
 using Microsoft.Extensions.Logging;
 
-namespace Hookpipe.Sinks.Stdout;
+namespace Hookpipe.Core.Sinks;
 
 /// <summary>
 /// Sink that writes message envelopes to stdout as formatted JSON.
@@ -15,8 +14,8 @@ public sealed class StdoutSink(ILogger<StdoutSink> logger) : ISink
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true,
-        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
     };
 
     /// <inheritdoc />

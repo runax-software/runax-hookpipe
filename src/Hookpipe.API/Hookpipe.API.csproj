@@ -11,10 +11,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Hookpipe.Core\Hookpipe.Core.csproj" />
-    <ProjectReference Include="..\Hookpipe.Sinks.Stdout\Hookpipe.Sinks.Stdout.csproj" />
-    <ProjectReference Include="..\Hookpipe.Sinks.Sqs\Hookpipe.Sinks.Sqs.csproj" />
-    <ProjectReference Include="..\Hookpipe.Sinks.Kafka\Hookpipe.Sinks.Kafka.csproj" />
-    <ProjectReference Include="..\Hookpipe.Sinks.RabbitMq\Hookpipe.Sinks.RabbitMq.csproj" />
   </ItemGroup>
 
 </Project>

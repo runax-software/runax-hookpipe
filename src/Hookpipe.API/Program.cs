@@ -3,7 +3,6 @@ using Hookpipe.Core.Config;
 using Hookpipe.Core.Services;
 using Hookpipe.Core.Sinks;
 using Hookpipe.Core.Validation;
-using Hookpipe.Sinks.Stdout;
 
 var builder = WebApplication.CreateBuilder(args);
 
