@@ -1,0 +1,20 @@
+<Project>
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- Config -->
+    <PackageVersion Include="YamlDotNet" Version="17.0.1" />
+
+    <!-- API -->
+    <PackageVersion Include="Swashbuckle.AspNetCore" Version="10.1.7" />
+
+    <!-- Logging -->
+    <PackageVersion Include="Serilog.AspNetCore" Version="10.0.0" />
+
+    <!-- Sinks -->
+    <PackageVersion Include="AWSSDK.SQS" Version="4.0.2.14" />
+    <PackageVersion Include="Confluent.Kafka" Version="2.13.0" />
+    <PackageVersion Include="RabbitMQ.Client" Version="7.2.1" />
+  </ItemGroup>
+</Project>
