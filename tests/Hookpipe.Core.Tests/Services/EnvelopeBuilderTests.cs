@@ -14,18 +14,18 @@ public sealed class EnvelopeBuilderTests
         bool includeHeaders = false,
         List<string>? headerFilter = null,
         Dictionary<string, string>? metadata = null) => new()
-    {
-        Id = "test-endpoint",
-        Path = "/test",
-        Sink = "stdout",
-        Message = new MessageConfig
         {
-            IncludeBody = includeBody,
-            IncludeHeaders = includeHeaders,
-            HeaderFilter = headerFilter,
-            Metadata = metadata
-        }
-    };
+            Id = "test-endpoint",
+            Path = "/test",
+            Sink = "stdout",
+            Message = new MessageConfig
+            {
+                IncludeBody = includeBody,
+                IncludeHeaders = includeHeaders,
+                HeaderFilter = headerFilter,
+                Metadata = metadata
+            }
+        };
 
     private static HttpContext MakeContext(string method = "POST", string path = "/test", string? body = null)
     {
