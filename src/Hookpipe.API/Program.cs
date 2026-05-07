@@ -5,8 +5,9 @@ using Hookpipe.Core.Sinks;
 using Hookpipe.Core.Validation;
 
 var builder = WebApplication.CreateBuilder(args);
-
-var configPath = builder.Configuration["Hookpipe:ConfigPath"] ?? "config/hookpipe.yaml";
+var app = builder.Build();
+var loggerFactory = app.Services.GetRequiredService<ILoggerFactory>();
+var configPath = Environment.GetEnvironmentVariable("HOOKPIPE_CONFIG_PATH") ?? "config/hookpipe.yaml";
 var config = ConfigLoader.Load(configPath);
 var sinks = new Dictionary<string, ISink>();
 var validators = new Dictionary<string, IValidator>
@@ -17,16 +18,13 @@ var validators = new Dictionary<string, IValidator>
 
 foreach (var sinkConfig in config.Sinks)
 {
-    ISink sink = sinkConfig.Type switch
+    sinks[sinkConfig.Id] = sinkConfig.Type switch
     {
-        "stdout" => new StdoutSink(LoggerFactory.Create(b => b.AddConsole()).CreateLogger<StdoutSink>()),
+        "stdout" => new StdoutSink(loggerFactory.CreateLogger<StdoutSink>()),
+        "rabbitmq" => await RabbitMqSink.CreateAsync(sinkConfig, loggerFactory.CreateLogger<RabbitMqSink>()),
         _ => throw new InvalidOperationException($"Unknown sink type: '{sinkConfig.Type}'"),
     };
-
-    sinks[sinkConfig.Id] = sink;
 }
-
-var app = builder.Build();
 
 foreach (var endpoint in config.Endpoints)
 {
@@ -86,7 +84,6 @@ foreach (var endpoint in config.Endpoints)
 app.MapGet("/health", () => Results.Ok());
 
 app.Run();
-
 
 internal static partial class Patterns
 {

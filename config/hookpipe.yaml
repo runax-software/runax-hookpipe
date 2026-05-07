@@ -8,6 +8,22 @@ endpoints:
       include_body: false
       include_headers: true
 
+  - id: test-webhook
+    path: /test/webhook
+    methods:
+      - POST
+    sink: rabbitmq-local
+    message:
+      include_body: true
+      include_headers: true
+
 sinks:
   - id: stdout-dev
     type: stdout
+
+  - id: rabbitmq-local
+    type: rabbitmq
+    settings:
+      url_env: RABBITMQ_URL
+      exchange: webhooks
+      routing_key: events
