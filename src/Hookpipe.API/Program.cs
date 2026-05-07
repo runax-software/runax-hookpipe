@@ -56,7 +56,8 @@ foreach (var endpoint in config.Endpoints)
         var envelope = await EnvelopeBuilder.BuildAsync(context, endpoint, pathParams);
         await sink.ProduceAsync(envelope, context.RequestAborted);
 
-        context.Response.StatusCode = 200;
+        context.Response.StatusCode = 202;
+        await context.Response.WriteAsJsonAsync(new { status = "accepted", endpoint_id = endpoint.Id });
     });
 }
 
