@@ -34,14 +34,11 @@ foreach (var endpoint in config.Endpoints)
         paramNames.Add(m.Groups[1].Value);
         return @"([^/]+)";
     }) + "$";
-    var regex = new Regex(pattern, RegexOptions.Compiled);
-
-    var sink = sinks[endpoint.Sink];
-    var methods = endpoint.Methods.Select(m => m.ToUpperInvariant()).ToHashSet();
+    var logger = loggerFactory.CreateLogger($"Hookpipe.Endpoint.{endpoint.Id}");
 
     app.Map(endpoint.Path, async context =>
     {
-        if (!methods.Contains(context.Request.Method))
+        if (!endpoint.Methods.Select(method => method.ToUpperInvariant()).ToHashSet().Contains(context.Request.Method))
         {
             context.Response.StatusCode = 405;
             return;
@@ -64,24 +61,45 @@ foreach (var endpoint in config.Endpoints)
             }
         }
 
-        Dictionary<string, string>? pathParams = null;
-        var match = regex.Match(context.Request.Path.Value ?? "");
-        if (match.Success && paramNames.Count > 0)
+        try
         {
-            pathParams = [];
-            for (var i = 0; i < paramNames.Count; i++)
-                pathParams[paramNames[i]] = match.Groups[i + 1].Value;
+            Dictionary<string, string>? pathParams = null;
+            var match = new Regex(pattern, RegexOptions.Compiled).Match(context.Request.Path.Value ?? "");
+            if (match.Success && paramNames.Count > 0)
+            {
+                pathParams = [];
+                for (var i = 0; i < paramNames.Count; i++)
+                    pathParams[paramNames[i]] = match.Groups[i + 1].Value;
+            }
+
+            var envelope = await EnvelopeBuilder.BuildAsync(context, endpoint, pathParams);
+            await sinks[endpoint.Sink].ProduceAsync(envelope, context.RequestAborted);
+
+            context.Response.StatusCode = 202;
+            await context.Response.WriteAsJsonAsync(new { status = "accepted", endpoint_id = endpoint.Id });
         }
-
-        var envelope = await EnvelopeBuilder.BuildAsync(context, endpoint, pathParams);
-        await sink.ProduceAsync(envelope, context.RequestAborted);
-
-        context.Response.StatusCode = 202;
-        await context.Response.WriteAsJsonAsync(new { status = "accepted", endpoint_id = endpoint.Id });
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to process request on endpoint '{EndpointId}'", endpoint.Id);
+            context.Response.StatusCode = 500;
+            await context.Response.WriteAsJsonAsync(new { error = "internal_error", endpoint_id = endpoint.Id });
+        }
     });
 }
 
 app.MapGet("/health", () => Results.Ok());
+
+app.Lifetime.ApplicationStopping.Register(() =>
+{
+    var shutdownLogger = loggerFactory.CreateLogger("Hookpipe.Shutdown");
+    foreach (var (id, sink) in sinks)
+    {
+        if (sink is not IAsyncDisposable disposable) continue;
+
+        shutdownLogger.LogInformation("Disposing sink '{SinkId}'", id);
+        disposable.DisposeAsync().AsTask().GetAwaiter().GetResult();
+    }
+});
 
 app.Run();
 
