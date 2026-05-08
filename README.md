@@ -117,9 +117,11 @@ See [Message Envelope](docs/message-envelope.md) for full format.
 | ---------------------------- | -------------------------- | ---------------------- |
 | `HOOKPIPE_CONFIG_PATH`       | Path to YAML config        | `config/hookpipe.yaml` |
 | `RABBITMQ_URL`               | RabbitMQ connection string | —                      |
-| `Logging__LogLevel__Default` | Log level                  | `Information`          |
+| `KAFKA_BROKERS`              | Kafka broker list          | —                      |
+| `SEQ_URL`                    | Seq server URL             | — (disabled)           |
+| `LOKI_URL`                   | Grafana Loki URL           | — (disabled)           |
 
-See [Configuration](docs/configuration.md) for all env vars.
+See [Configuration](docs/configuration.md) for all env vars and [Logging](docs/logging.md) for log destinations.
 
 ## Endpoints
 
