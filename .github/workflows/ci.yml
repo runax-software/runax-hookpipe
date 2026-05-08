@@ -13,19 +13,57 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+      - name: Setup and build
+        uses: ./.github/actions/setup-dotnet-build
         with:
-          dotnet-version: '8.0.x'
+          warnings-as-errors: 'true'
 
-      - name: Restore
-        run: dotnet restore
-
-      - name: Build
-        run: dotnet build --no-restore --warnaserror
-
-      - name: Test
-        run: dotnet test --no-build --verbosity normal
+      - name: Unit tests
+        run: dotnet test --no-build --filter "Category!=Integration" --verbosity normal
 
       - name: Format check
         run: dotnet format --verify-no-changes
+
+  integration-tests:
+    runs-on: ubuntu-latest
+
+    services:
+      rabbitmq:
+        image: rabbitmq:3-management-alpine
+        ports:
+          - 5672:5672
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      kafka:
+        image: bitnami/kafka:latest
+        ports:
+          - 9092:9092
+        env:
+          KAFKA_CFG_NODE_ID: 1
+          KAFKA_CFG_PROCESS_ROLES: broker,controller
+          KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
+          KAFKA_CFG_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+          KAFKA_CFG_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+          KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
+          KAFKA_CFG_CONTROLLER_LISTENER_NAMES: CONTROLLER
+        options: >-
+          --health-cmd "kafka-topics.sh --bootstrap-server localhost:9092 --list"
+          --health-interval 10s
+          --health-timeout 10s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup and build
+        uses: ./.github/actions/setup-dotnet-build
+
+      - name: Integration tests
+        env:
+          RABBITMQ_URL: amqp://guest:guest@localhost:5672
+          KAFKA_BROKERS: localhost:9092
+        run: dotnet test --no-build --filter "Category=Integration" --verbosity normal
