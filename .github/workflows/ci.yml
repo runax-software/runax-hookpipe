@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup and build
         uses: ./.github/actions/setup-dotnet-build
@@ -53,7 +53,7 @@ jobs:
           KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup and build
         uses: ./.github/actions/setup-dotnet-build
