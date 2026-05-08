@@ -3,8 +3,26 @@ using Hookpipe.Core.Config;
 using Hookpipe.Core.Services;
 using Hookpipe.Core.Sinks;
 using Hookpipe.Core.Validation;
+using Serilog;
+using Serilog.Sinks.Grafana.Loki;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Host.UseSerilog((context, config) =>
+{
+    config.ReadFrom.Configuration(context.Configuration).WriteTo.Console();
+
+    var seqUrl = Environment.GetEnvironmentVariable("SEQ_URL");
+    if (!string.IsNullOrEmpty(seqUrl))
+    {
+        var seqApiKey = Environment.GetEnvironmentVariable("SEQ_API_KEY");
+        config.WriteTo.Seq(seqUrl, apiKey: seqApiKey);
+    }
+
+    var lokiUrl = Environment.GetEnvironmentVariable("LOKI_URL");
+    if (!string.IsNullOrEmpty(lokiUrl)) config.WriteTo.GrafanaLoki(lokiUrl);
+});
+
 var app = builder.Build();
 var loggerFactory = app.Services.GetRequiredService<ILoggerFactory>();
 var configPath = Environment.GetEnvironmentVariable("HOOKPIPE_CONFIG_PATH") ?? "config/hookpipe.yaml";
