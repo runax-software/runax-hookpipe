@@ -26,6 +26,7 @@ jobs:
 
   integration-tests:
     runs-on: ubuntu-latest
+    needs: build-and-test
 
     services:
       rabbitmq:
@@ -39,28 +40,34 @@ jobs:
           --health-retries 5
 
       kafka:
-        image: bitnami/kafka:latest
+        image: apache/kafka:latest
         ports:
           - 9092:9092
         env:
-          KAFKA_CFG_NODE_ID: 1
-          KAFKA_CFG_PROCESS_ROLES: broker,controller
-          KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
-          KAFKA_CFG_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
-          KAFKA_CFG_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
-          KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
-          KAFKA_CFG_CONTROLLER_LISTENER_NAMES: CONTROLLER
-        options: >-
-          --health-cmd "kafka-topics.sh --bootstrap-server localhost:9092 --list"
-          --health-interval 10s
-          --health-timeout 10s
-          --health-retries 10
+          KAFKA_NODE_ID: 1
+          KAFKA_PROCESS_ROLES: broker,controller
+          KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
+          KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+          KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+          KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
+          KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
 
     steps:
       - uses: actions/checkout@v4
 
       - name: Setup and build
         uses: ./.github/actions/setup-dotnet-build
+
+      - name: Wait for Kafka
+        run: |
+          for i in $(seq 1 30); do
+            if docker exec $(docker ps -q --filter ancestor=apache/kafka:latest) /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list 2>/dev/null; then
+              echo "Kafka is ready"
+              break
+            fi
+            echo "Waiting for Kafka... ($i/30)"
+            sleep 5
+          done
 
       - name: Integration tests
         env:
