@@ -13,17 +13,31 @@ namespace Hookpipe.Core.Tests.Sinks;
 /// Requires Kafka running on localhost:9092 (docker compose up).
 /// </summary>
 [Trait("Category", "Integration")]
-public sealed class KafkaSinkIntegrationTests : IDisposable
+public sealed class KafkaSinkIntegrationTests : IAsyncLifetime, IDisposable
 {
     private const string Brokers = "localhost:9092";
 
-    private readonly KafkaSink _sink;
-    private readonly string _topic;
+    private readonly string _topic = $"hookpipe-test-{Guid.NewGuid():N}";
+    private KafkaSink _sink = null!;
 
-    public KafkaSinkIntegrationTests()
+    public async Task InitializeAsync()
     {
-        _topic = $"hookpipe-test-{Guid.NewGuid():N}";
         Environment.SetEnvironmentVariable("TEST_KAFKA_BROKERS", Brokers);
+
+        // Wait for Kafka to be fully ready
+        using var adminClient = new AdminClientBuilder(new AdminClientConfig { BootstrapServers = Brokers }).Build();
+        for (var i = 0; i < 30; i++)
+        {
+            try
+            {
+                adminClient.GetMetadata(TimeSpan.FromSeconds(5));
+                break;
+            }
+            catch
+            {
+                await Task.Delay(2000);
+            }
+        }
 
         var sinkConfig = new SinkConfig
         {
@@ -40,25 +54,25 @@ public sealed class KafkaSinkIntegrationTests : IDisposable
         _sink = KafkaSink.Create(sinkConfig, loggerFactory.CreateLogger<KafkaSink>());
     }
 
+    public Task DisposeAsync() => Task.CompletedTask;
+
     public void Dispose()
     {
         _sink.Dispose();
         Environment.SetEnvironmentVariable("TEST_KAFKA_BROKERS", null);
     }
 
-    private IConsumer<string, string> CreateConsumer()
+    private ConsumeResult<string, string>? ConsumeWithRetry(IConsumer<string, string> consumer, int timeoutSeconds = 60)
     {
-        var config = new ConsumerConfig
+        var deadline = DateTime.UtcNow.AddSeconds(timeoutSeconds);
+        while (DateTime.UtcNow < deadline)
         {
-            BootstrapServers = Brokers,
-            GroupId = $"hookpipe-test-{Guid.NewGuid():N}",
-            AutoOffsetReset = AutoOffsetReset.Earliest,
-            EnableAutoCommit = true,
-        };
+            var result = consumer.Consume(TimeSpan.FromSeconds(5));
+            if (result is not null)
+                return result;
+        }
 
-        var consumer = new ConsumerBuilder<string, string>(config).Build();
-        consumer.Subscribe(_topic);
-        return consumer;
+        return null;
     }
 
     [Fact]
@@ -77,8 +91,15 @@ public sealed class KafkaSinkIntegrationTests : IDisposable
 
         await _sink.ProduceAsync(envelope);
 
-        using var consumer = CreateConsumer();
-        var result = consumer.Consume(TimeSpan.FromSeconds(30));
+        using var consumer = new ConsumerBuilder<string, string>(new ConsumerConfig
+        {
+            BootstrapServers = Brokers,
+            GroupId = $"test-{Guid.NewGuid():N}",
+            AutoOffsetReset = AutoOffsetReset.Earliest,
+        }).Build();
+        consumer.Subscribe(_topic);
+
+        var result = ConsumeWithRetry(consumer);
         result.Should().NotBeNull();
 
         var deserialized = JsonSerializer.Deserialize<JsonElement>(result!.Message.Value);
@@ -101,8 +122,15 @@ public sealed class KafkaSinkIntegrationTests : IDisposable
 
         await _sink.ProduceAsync(envelope);
 
-        using var consumer = CreateConsumer();
-        var result = consumer.Consume(TimeSpan.FromSeconds(30));
+        using var consumer = new ConsumerBuilder<string, string>(new ConsumerConfig
+        {
+            BootstrapServers = Brokers,
+            GroupId = $"test-{Guid.NewGuid():N}",
+            AutoOffsetReset = AutoOffsetReset.Earliest,
+        }).Build();
+        consumer.Subscribe(_topic);
+
+        var result = ConsumeWithRetry(consumer);
         result.Should().NotBeNull();
         result!.Message.Key.Should().Be("key-test-endpoint");
     }
@@ -123,8 +151,15 @@ public sealed class KafkaSinkIntegrationTests : IDisposable
 
         await _sink.ProduceAsync(envelope);
 
-        using var consumer = CreateConsumer();
-        var result = consumer.Consume(TimeSpan.FromSeconds(30));
+        using var consumer = new ConsumerBuilder<string, string>(new ConsumerConfig
+        {
+            BootstrapServers = Brokers,
+            GroupId = $"test-{Guid.NewGuid():N}",
+            AutoOffsetReset = AutoOffsetReset.Earliest,
+        }).Build();
+        consumer.Subscribe(_topic);
+
+        var result = ConsumeWithRetry(consumer);
         result.Should().NotBeNull();
 
         var headers = result!.Message.Headers;
