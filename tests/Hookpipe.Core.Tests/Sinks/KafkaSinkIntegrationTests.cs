@@ -15,14 +15,14 @@ namespace Hookpipe.Core.Tests.Sinks;
 [Trait("Category", "Integration")]
 public sealed class KafkaSinkIntegrationTests : IDisposable
 {
-    private const string Topic = "hookpipe-integration-test";
     private const string Brokers = "localhost:9092";
 
     private readonly KafkaSink _sink;
-    private readonly IConsumer<string, string> _consumer;
+    private readonly string _topic;
 
     public KafkaSinkIntegrationTests()
     {
+        _topic = $"hookpipe-test-{Guid.NewGuid():N}";
         Environment.SetEnvironmentVariable("TEST_KAFKA_BROKERS", Brokers);
 
         var sinkConfig = new SinkConfig
@@ -32,34 +32,33 @@ public sealed class KafkaSinkIntegrationTests : IDisposable
             Settings = new Dictionary<string, string>
             {
                 ["brokers_env"] = "TEST_KAFKA_BROKERS",
-                ["topic"] = Topic,
+                ["topic"] = _topic,
             }
         };
 
         var loggerFactory = LoggerFactory.Create(b => b.AddConsole());
         _sink = KafkaSink.Create(sinkConfig, loggerFactory.CreateLogger<KafkaSink>());
-
-        var consumerConfig = new ConsumerConfig
-        {
-            BootstrapServers = Brokers,
-            GroupId = $"hookpipe-test-{Guid.NewGuid()}",
-            AutoOffsetReset = AutoOffsetReset.Latest,
-            EnableAutoCommit = true,
-        };
-
-        _consumer = new ConsumerBuilder<string, string>(consumerConfig).Build();
-        _consumer.Subscribe(Topic);
-
-        // Poll once to trigger partition assignment
-        _consumer.Consume(TimeSpan.FromSeconds(5));
     }
 
     public void Dispose()
     {
         _sink.Dispose();
-        _consumer.Close();
-        _consumer.Dispose();
         Environment.SetEnvironmentVariable("TEST_KAFKA_BROKERS", null);
+    }
+
+    private IConsumer<string, string> CreateConsumer()
+    {
+        var config = new ConsumerConfig
+        {
+            BootstrapServers = Brokers,
+            GroupId = $"hookpipe-test-{Guid.NewGuid():N}",
+            AutoOffsetReset = AutoOffsetReset.Earliest,
+            EnableAutoCommit = true,
+        };
+
+        var consumer = new ConsumerBuilder<string, string>(config).Build();
+        consumer.Subscribe(_topic);
+        return consumer;
     }
 
     [Fact]
@@ -78,7 +77,8 @@ public sealed class KafkaSinkIntegrationTests : IDisposable
 
         await _sink.ProduceAsync(envelope);
 
-        var result = _consumer.Consume(TimeSpan.FromSeconds(10));
+        using var consumer = CreateConsumer();
+        var result = consumer.Consume(TimeSpan.FromSeconds(30));
         result.Should().NotBeNull();
 
         var deserialized = JsonSerializer.Deserialize<JsonElement>(result!.Message.Value);
@@ -101,7 +101,8 @@ public sealed class KafkaSinkIntegrationTests : IDisposable
 
         await _sink.ProduceAsync(envelope);
 
-        var result = _consumer.Consume(TimeSpan.FromSeconds(10));
+        using var consumer = CreateConsumer();
+        var result = consumer.Consume(TimeSpan.FromSeconds(30));
         result.Should().NotBeNull();
         result!.Message.Key.Should().Be("key-test-endpoint");
     }
@@ -122,7 +123,8 @@ public sealed class KafkaSinkIntegrationTests : IDisposable
 
         await _sink.ProduceAsync(envelope);
 
-        var result = _consumer.Consume(TimeSpan.FromSeconds(10));
+        using var consumer = CreateConsumer();
+        var result = consumer.Consume(TimeSpan.FromSeconds(30));
         result.Should().NotBeNull();
 
         var headers = result!.Message.Headers;
