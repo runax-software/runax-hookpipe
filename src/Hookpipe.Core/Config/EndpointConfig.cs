@@ -26,9 +26,26 @@ public sealed class EndpointConfig
     public ValidationConfig? Validation { get; set; }
 
     /// <summary>
-    /// ID of the sink to route messages to. Must match a <see cref="SinkConfig.Id"/>.
+    /// Single sink ID for backwards compatibility. Use <see cref="Sinks"/> for fan-out.
     /// </summary>
-    public required string Sink { get; set; }
+    public string? Sink { get; set; }
+
+    /// <summary>
+    /// Sink IDs to route messages to. Must match <see cref="SinkConfig.Id"/>.
+    /// If empty, falls back to <see cref="Sink"/>.
+    /// </summary>
+    public List<string> Sinks { get; set; } = [];
+
+    /// <summary>
+    /// Returns the resolved list of sink IDs (merges Sink and Sinks).
+    /// </summary>
+    public List<string> GetResolvedSinks()
+    {
+        if (Sinks.Count > 0) return Sinks;
+        if (!string.IsNullOrWhiteSpace(Sink)) return [Sink];
+
+        return [];
+    }
 
     /// <summary>
     /// Controls what data from the request is included in the produced message.

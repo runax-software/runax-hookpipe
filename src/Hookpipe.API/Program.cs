@@ -59,8 +59,8 @@ foreach (var endpoint in configProvider.Current.Endpoints)
     var regex = new Regex(pattern, RegexOptions.Compiled);
     var logger = loggerFactory.CreateLogger($"Hookpipe.Endpoint.{endpointId}");
 
-    startupLogger.LogInformation("[Hookpipe.Endpoint:{Id}] Registered {Methods} {Path} -> sink '{Sink}'",
-        endpointId, string.Join("|", endpoint.Methods), endpoint.Path, endpoint.Sink);
+    startupLogger.LogInformation("[Hookpipe.Endpoint:{Id}] Registered {Methods} {Path} -> sinks [{Sinks}]",
+        endpointId, string.Join("|", endpoint.Methods), endpoint.Path, string.Join(", ", endpoint.GetResolvedSinks()));
 
     app.Map(endpoint.Path, async context =>
     {
@@ -117,24 +117,25 @@ foreach (var endpoint in configProvider.Current.Endpoints)
                 for (var i = 0; i < paramNames.Count; i++)
                     pathParams[paramNames[i]] = match.Groups[i + 1].Value;
 
-                logger.LogDebug("[Hookpipe.Endpoint:{EndpointId}] Extracted {Count} path param(s)",
-                    endpointId, pathParams.Count);
-            }
-
-            if (!sinks.TryGetValue(liveEndpoint.Sink, out var sink))
-            {
-                logger.LogError("[Hookpipe.Endpoint:{EndpointId}] Sink '{SinkId}' not found",
-                    endpointId, liveEndpoint.Sink);
-                context.Response.StatusCode = 500;
-                await context.Response.WriteAsJsonAsync(new { error = "internal_error", endpoint_id = endpointId });
-                return;
+                logger.LogDebug("[Hookpipe.Endpoint:{EndpointId}] Extracted {Count} path param(s)", endpointId,
+                    pathParams.Count);
             }
 
             var envelope = await envelopeBuilder.BuildAsync(context, liveEndpoint, pathParams);
-            await sink.ProduceAsync(envelope, context.RequestAborted);
+            var resolvedSinks = liveEndpoint.GetResolvedSinks();
 
-            logger.LogDebug("[Hookpipe.Endpoint:{EndpointId}] Message '{MessageId}' produced to sink '{SinkId}'",
-                endpointId, envelope.Id, liveEndpoint.Sink);
+            foreach (var sinkId in resolvedSinks)
+            {
+                if (!sinks.TryGetValue(sinkId, out var sink))
+                {
+                    logger.LogError("[Hookpipe.Endpoint:{EndpointId}] Sink '{SinkId}' not found", endpointId, sinkId);
+                    continue;
+                }
+
+                await sink.ProduceAsync(envelope, context.RequestAborted);
+                logger.LogDebug("[Hookpipe.Endpoint:{EndpointId}] Message '{MessageId}' produced to sink '{SinkId}'",
+                    endpointId, envelope.Id, sinkId);
+            }
 
             context.Response.StatusCode = 202;
             await context.Response.WriteAsJsonAsync(new { status = "accepted", endpoint_id = endpointId });

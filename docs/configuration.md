@@ -21,7 +21,7 @@ endpoints:
               header: X-Hub-Signature-256
               secret_env: GITHUB_WEBHOOK_SECRET
               algorithm: hmac-sha256
-      sink: my-sink # Sink ID to route messages to
+      sink: my-sink # Single sink (backwards compatible)
       message: # Controls what goes into the envelope
           include_body: true # Include request body (default: true)
           include_headers: true # Include request headers (default: false)
@@ -31,6 +31,24 @@ endpoints:
           metadata: # Static or path-param metadata (optional)
               source: "{source}" # {param} is resolved from path
 ```
+
+#### Fan-out (multiple sinks)
+
+Use `sinks` (plural) to route a single endpoint to multiple destinations:
+
+```yaml
+endpoints:
+    - id: github-push
+      path: /github/push
+      sinks: # Fan-out to multiple sinks
+          - rabbitmq-main
+          - stdout-dev
+          - relay-downstream
+      message:
+          include_body: true
+```
+
+Both `sink` (single string) and `sinks` (list) are supported. If both are set, `sinks` takes precedence.
 
 ### Sinks
 

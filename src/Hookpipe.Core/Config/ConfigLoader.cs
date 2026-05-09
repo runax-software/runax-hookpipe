@@ -63,9 +63,12 @@ public static class ConfigLoader
             Ensure(endpointIds.Add(endpoint.Id), $"Duplicate endpoint id: '{endpoint.Id}'");
             EnsureNotEmpty(endpoint.Path, $"Endpoint '{endpoint.Id}' is missing a 'path'");
             Ensure(endpoint.Methods.Count > 0, $"Endpoint '{endpoint.Id}' must have at least one method");
-            EnsureNotEmpty(endpoint.Sink, $"Endpoint '{endpoint.Id}' is missing a 'sink'");
-            Ensure(sinkIds.Contains(endpoint.Sink),
-                $"Endpoint '{endpoint.Id}' references unknown sink '{endpoint.Sink}'");
+
+            var resolvedSinks = endpoint.GetResolvedSinks();
+            Ensure(resolvedSinks.Count > 0, $"Endpoint '{endpoint.Id}' is missing 'sink' or 'sinks'");
+            foreach (var sinkRef in resolvedSinks)
+                Ensure(sinkIds.Contains(sinkRef),
+                    $"Endpoint '{endpoint.Id}' references unknown sink '{sinkRef}'");
 
             ValidateValidation(endpoint);
         }

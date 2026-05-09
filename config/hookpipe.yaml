@@ -12,7 +12,9 @@ endpoints:
     path: /test/webhook
     methods:
       - POST
-    sink: rabbitmq-local
+    sinks: # Fan-out example
+      - rabbitmq-local
+      - stdout-dev
     message:
       include_body: true
       include_headers: true

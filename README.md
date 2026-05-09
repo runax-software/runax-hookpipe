@@ -52,7 +52,8 @@ endpoints:
               header: X-Hub-Signature-256
               secret_env: GITHUB_WEBHOOK_SECRET
               algorithm: hmac-sha256
-      sink: rabbitmq-main
+      sinks: # Fan-out to multiple sinks
+          - rabbitmq-main
       message:
           include_body: true
           include_headers: true
