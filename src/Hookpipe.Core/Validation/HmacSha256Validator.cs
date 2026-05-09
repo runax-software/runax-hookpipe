@@ -12,6 +12,8 @@ namespace Hookpipe.Core.Validation;
 /// </summary>
 public sealed class HmacSha256Validator : IValidator
 {
+    private static readonly Encoding Encoding = Encoding.UTF8;
+
     /// <inheritdoc />
     public string Type => "hmac-sha256";
 
@@ -33,15 +35,14 @@ public sealed class HmacSha256Validator : IValidator
         context.Request.Body.Position = 0;
 
         using var reader = new StreamReader(context.Request.Body, leaveOpen: true);
-        var body = await reader.ReadToEndAsync();
+        var body = await reader.ReadToEndAsync(context.RequestAborted);
         context.Request.Body.Position = 0;
 
-        var encoding = Encoding.UTF8;
-        using var hmac = new HMACSHA256(encoding.GetBytes(secret));
-        var hash = hmac.ComputeHash(encoding.GetBytes(body));
+        using var hmac = new HMACSHA256(Encoding.GetBytes(secret));
+        var hash = hmac.ComputeHash(Encoding.GetBytes(body));
 
         return CryptographicOperations.FixedTimeEquals(
-            encoding.GetBytes(Convert.ToHexString(hash).ToLowerInvariant()),
-            encoding.GetBytes(signature));
+            Encoding.GetBytes(Convert.ToHexString(hash).ToLowerInvariant()),
+            Encoding.GetBytes(signature));
     }
 }

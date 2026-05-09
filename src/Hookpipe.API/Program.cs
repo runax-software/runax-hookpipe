@@ -48,16 +48,18 @@ foreach (var sinkConfig in config.Sinks)
 foreach (var endpoint in config.Endpoints)
 {
     var paramNames = new List<string>();
-    var pattern = "^" + Patterns.PathParamPattern().Replace(endpoint.Path, m =>
+    var pattern = "^" + Patterns.PathParamPattern().Replace(Regex.Escape(endpoint.Path), method =>
     {
-        paramNames.Add(m.Groups[1].Value);
+        paramNames.Add(method.Groups[1].Value);
         return @"([^/]+)";
     }) + "$";
+    var regex = new Regex(pattern, RegexOptions.Compiled);
+    var methods = endpoint.Methods.Select(method => method.ToUpperInvariant()).ToHashSet();
     var logger = loggerFactory.CreateLogger($"Hookpipe.Endpoint.{endpoint.Id}");
 
     app.Map(endpoint.Path, async context =>
     {
-        if (!endpoint.Methods.Select(method => method.ToUpperInvariant()).ToHashSet().Contains(context.Request.Method))
+        if (!methods.Contains(context.Request.Method))
         {
             context.Response.StatusCode = 405;
             return;
@@ -83,7 +85,8 @@ foreach (var endpoint in config.Endpoints)
         try
         {
             Dictionary<string, string>? pathParams = null;
-            var match = new Regex(pattern, RegexOptions.Compiled).Match(context.Request.Path.Value ?? "");
+            var match = regex.Match(context.Request.Path.Value ?? "");
+
             if (match.Success && paramNames.Count > 0)
             {
                 pathParams = [];
@@ -113,10 +116,17 @@ app.Lifetime.ApplicationStopping.Register(() =>
     var shutdownLogger = loggerFactory.CreateLogger("Hookpipe.Shutdown");
     foreach (var (id, sink) in sinks)
     {
-        if (sink is not IAsyncDisposable disposable) continue;
-
         shutdownLogger.LogInformation("Disposing sink '{SinkId}'", id);
-        disposable.DisposeAsync().AsTask().GetAwaiter().GetResult();
+
+        switch (sink)
+        {
+            case IAsyncDisposable asyncDisposable:
+                asyncDisposable.DisposeAsync().AsTask().GetAwaiter().GetResult();
+                break;
+            case IDisposable disposable:
+                disposable.Dispose();
+                break;
+        }
     }
 });
 

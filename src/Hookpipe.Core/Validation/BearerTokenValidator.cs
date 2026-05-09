@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using Hookpipe.Core.Config;
 using Microsoft.AspNetCore.Http;
 
@@ -9,6 +11,8 @@ namespace Hookpipe.Core.Validation;
 /// </summary>
 public sealed class BearerTokenValidator : IValidator
 {
+    private static readonly Encoding Encoding = Encoding.UTF8;
+
     /// <inheritdoc />
     public string Type => "bearer";
 
@@ -24,6 +28,7 @@ public sealed class BearerTokenValidator : IValidator
         if (header.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
             header = header["Bearer ".Length..].Trim();
 
-        return Task.FromResult(header.Equals(expected, StringComparison.Ordinal));
+        return Task.FromResult(
+            CryptographicOperations.FixedTimeEquals(Encoding.GetBytes(header), Encoding.GetBytes(expected)));
     }
 }

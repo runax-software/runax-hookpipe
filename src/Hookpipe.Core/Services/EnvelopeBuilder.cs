@@ -48,13 +48,13 @@ public static class EnvelopeBuilder
             context.Request.Body.Position = 0;
 
             using var reader = new StreamReader(context.Request.Body, leaveOpen: true);
-            var raw = await reader.ReadToEndAsync();
+            var raw = await reader.ReadToEndAsync(context.RequestAborted);
 
             try
             {
                 envelope.Body = JsonSerializer.Deserialize<JsonElement>(raw);
             }
-            catch
+            catch (JsonException)
             {
                 envelope.Body = raw;
             }

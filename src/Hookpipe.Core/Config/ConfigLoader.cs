@@ -13,6 +13,8 @@ public static class ConfigLoader
         .IgnoreUnmatchedProperties()
         .Build();
 
+    private static readonly HashSet<string> KnownValidatorTypes = ["bearer", "hmac-sha256"];
+
     /// <summary>
     /// Loads configuration from the specified YAML file path.
     /// </summary>
@@ -49,35 +51,21 @@ public static class ConfigLoader
     /// </summary>
     private static void Validate(HookpipeConfig config)
     {
-        if (config.Endpoints.Count == 0)
-            throw new InvalidOperationException("Config must define at least one endpoint");
+        Ensure(config.Endpoints.Count > 0, "Config must define at least one endpoint");
+        Ensure(config.Sinks.Count > 0, "Config must define at least one sink");
 
-        if (config.Sinks.Count == 0)
-            throw new InvalidOperationException("Config must define at least one sink");
-
-        var sinkIds = config.Sinks.Select(s => s.Id).ToHashSet();
+        var sinkIds = config.Sinks.Select(sink => sink.Id).ToHashSet();
         var endpointIds = new HashSet<string>();
 
         foreach (var endpoint in config.Endpoints)
         {
-            if (string.IsNullOrWhiteSpace(endpoint.Id))
-                throw new InvalidOperationException("Endpoint is missing an 'id'");
-
-            if (!endpointIds.Add(endpoint.Id))
-                throw new InvalidOperationException($"Duplicate endpoint id: '{endpoint.Id}'");
-
-            if (string.IsNullOrWhiteSpace(endpoint.Path))
-                throw new InvalidOperationException($"Endpoint '{endpoint.Id}' is missing a 'path'");
-
-            if (endpoint.Methods.Count == 0)
-                throw new InvalidOperationException($"Endpoint '{endpoint.Id}' must have at least one method");
-
-            if (string.IsNullOrWhiteSpace(endpoint.Sink))
-                throw new InvalidOperationException($"Endpoint '{endpoint.Id}' is missing a 'sink'");
-
-            if (!sinkIds.Contains(endpoint.Sink))
-                throw new InvalidOperationException(
-                    $"Endpoint '{endpoint.Id}' references unknown sink '{endpoint.Sink}'");
+            EnsureNotEmpty(endpoint.Id, "Endpoint is missing an 'id'");
+            Ensure(endpointIds.Add(endpoint.Id), $"Duplicate endpoint id: '{endpoint.Id}'");
+            EnsureNotEmpty(endpoint.Path, $"Endpoint '{endpoint.Id}' is missing a 'path'");
+            Ensure(endpoint.Methods.Count > 0, $"Endpoint '{endpoint.Id}' must have at least one method");
+            EnsureNotEmpty(endpoint.Sink, $"Endpoint '{endpoint.Id}' is missing a 'sink'");
+            Ensure(sinkIds.Contains(endpoint.Sink),
+                $"Endpoint '{endpoint.Id}' references unknown sink '{endpoint.Sink}'");
 
             ValidateValidation(endpoint);
         }
@@ -85,14 +73,9 @@ public static class ConfigLoader
         var sinkIdSet = new HashSet<string>();
         foreach (var sink in config.Sinks)
         {
-            if (string.IsNullOrWhiteSpace(sink.Id))
-                throw new InvalidOperationException("Sink is missing an 'id'");
-
-            if (!sinkIdSet.Add(sink.Id))
-                throw new InvalidOperationException($"Duplicate sink id: '{sink.Id}'");
-
-            if (string.IsNullOrWhiteSpace(sink.Type))
-                throw new InvalidOperationException($"Sink '{sink.Id}' is missing a 'type'");
+            EnsureNotEmpty(sink.Id, "Sink is missing an 'id'");
+            Ensure(sinkIdSet.Add(sink.Id), $"Duplicate sink id: '{sink.Id}'");
+            EnsureNotEmpty(sink.Type, $"Sink '{sink.Id}' is missing a 'type'");
         }
     }
 
@@ -103,35 +86,44 @@ public static class ConfigLoader
     private static void ValidateValidation(EndpointConfig endpoint)
     {
         var validation = endpoint.Validation;
-        if (validation is null)
-            return;
+        if (validation is null) return;
 
-        if (validation.Signature is not null && validation.Auth is not null)
-            throw new InvalidOperationException(
-                $"Endpoint '{endpoint.Id}' has both 'signature' and 'auth' validation — pick one");
+        Ensure(validation.Signature is null || validation.Auth is null,
+            $"Endpoint '{endpoint.Id}' has both 'signature' and 'auth' validation — pick one");
 
         if (validation.Signature is not null)
         {
-            if (string.IsNullOrWhiteSpace(validation.Signature.Header))
-                throw new InvalidOperationException(
-                    $"Endpoint '{endpoint.Id}' signature validation is missing 'header'");
-
-            if (string.IsNullOrWhiteSpace(validation.Signature.SecretEnv))
-                throw new InvalidOperationException(
-                    $"Endpoint '{endpoint.Id}' signature validation is missing 'secret_env'");
-
-            if (string.IsNullOrWhiteSpace(validation.Signature.Algorithm))
-                throw new InvalidOperationException(
-                    $"Endpoint '{endpoint.Id}' signature validation is missing 'algorithm'");
+            EnsureNotEmpty(validation.Signature.Header,
+                $"Endpoint '{endpoint.Id}' signature validation is missing 'header'");
+            EnsureNotEmpty(validation.Signature.SecretEnv,
+                $"Endpoint '{endpoint.Id}' signature validation is missing 'secret_env'");
+            EnsureNotEmpty(validation.Signature.Algorithm,
+                $"Endpoint '{endpoint.Id}' signature validation is missing 'algorithm'");
+            Ensure(KnownValidatorTypes.Contains(validation.Signature.Algorithm),
+                $"Endpoint '{endpoint.Id}' references unknown validator type '{validation.Signature.Algorithm}'");
         }
 
         if (validation.Auth is null) return;
-        if (string.IsNullOrWhiteSpace(validation.Auth.Type))
-            throw new InvalidOperationException(
-                $"Endpoint '{endpoint.Id}' auth validation is missing 'type'");
 
-        if (string.IsNullOrWhiteSpace(validation.Auth.TokenEnv))
-            throw new InvalidOperationException(
-                $"Endpoint '{endpoint.Id}' auth validation is missing 'token_env'");
+        EnsureNotEmpty(validation.Auth.Type, $"Endpoint '{endpoint.Id}' auth validation is missing 'type'");
+        EnsureNotEmpty(validation.Auth.TokenEnv, $"Endpoint '{endpoint.Id}' auth validation is missing 'token_env'");
+        Ensure(KnownValidatorTypes.Contains(validation.Auth.Type),
+            $"Endpoint '{endpoint.Id}' references unknown auth type '{validation.Auth.Type}'");
+    }
+
+    /// <summary>
+    /// Throws <see cref="InvalidOperationException"/> if the condition is false.
+    /// </summary>
+    private static void Ensure(bool condition, string message)
+    {
+        if (!condition) throw new InvalidOperationException(message);
+    }
+
+    /// <summary>
+    /// Throws <see cref="InvalidOperationException"/> if the value is null or whitespace.
+    /// </summary>
+    private static void EnsureNotEmpty(string? value, string message)
+    {
+        if (string.IsNullOrWhiteSpace(value)) throw new InvalidOperationException(message);
     }
 }
