@@ -33,17 +33,23 @@ app.UseSerilogRequestLogging();
 var loggerFactory = app.Services.GetRequiredService<ILoggerFactory>();
 var startupLogger = loggerFactory.CreateLogger("Hookpipe.Startup");
 var configPath = Environment.GetEnvironmentVariable("HOOKPIPE_CONFIG_PATH") ?? "config/hookpipe.yaml";
-var config = ConfigLoader.Load(configPath);
+
+var configProvider = new ConfigProvider(configPath, loggerFactory.CreateLogger<ConfigProvider>());
+var fileWatcher = new ConfigFileWatcher(configPath, configProvider, loggerFactory.CreateLogger<ConfigFileWatcher>());
 
 startupLogger.LogInformation(
     "[Hookpipe.Config] Loaded {EndpointCount} endpoint(s) and {SinkCount} sink(s) from '{Path}'",
-    config.Endpoints.Count, config.Sinks.Count, configPath);
+    configProvider.Current.Endpoints.Count, configProvider.Current.Sinks.Count, configPath);
 
-var sinks = await SinkFactory.CreateAllAsync(config, loggerFactory);
+var sinks = await SinkFactory.CreateAllAsync(configProvider.Current, loggerFactory);
 var validators = ValidatorFactory.CreateAll(loggerFactory);
+var envelopeBuilder = new EnvelopeBuilder(loggerFactory.CreateLogger<EnvelopeBuilder>());
 
-foreach (var endpoint in config.Endpoints)
+// Routes are registered once at startup — paths can't change at runtime.
+// Validation, sink routing, and message config are read from live config on each request.
+foreach (var endpoint in configProvider.Current.Endpoints)
 {
+    var endpointId = endpoint.Id;
     var paramNames = new List<string>();
     var pattern = "^" + Patterns.PathParamPattern().Replace(Regex.Escape(endpoint.Path), method =>
     {
@@ -51,43 +57,53 @@ foreach (var endpoint in config.Endpoints)
         return @"([^/]+)";
     }) + "$";
     var regex = new Regex(pattern, RegexOptions.Compiled);
-    var methods = endpoint.Methods.Select(method => method.ToUpperInvariant()).ToHashSet();
-    var logger = loggerFactory.CreateLogger($"Hookpipe.Endpoint.{endpoint.Id}");
-    var envelopeBuilder = new EnvelopeBuilder(loggerFactory.CreateLogger<EnvelopeBuilder>());
+    var logger = loggerFactory.CreateLogger($"Hookpipe.Endpoint.{endpointId}");
 
     startupLogger.LogInformation("[Hookpipe.Endpoint:{Id}] Registered {Methods} {Path} -> sink '{Sink}'",
-        endpoint.Id, string.Join("|", methods), endpoint.Path, endpoint.Sink);
+        endpointId, string.Join("|", endpoint.Methods), endpoint.Path, endpoint.Sink);
 
     app.Map(endpoint.Path, async context =>
     {
+        // Look up live config for this endpoint
+        var liveEndpoint = configProvider.Current.Endpoints.FirstOrDefault(e => e.Id == endpointId);
+        if (liveEndpoint is null)
+        {
+            logger.LogDebug("[Hookpipe.Endpoint:{EndpointId}] Endpoint removed from config, returning 404",
+                endpointId);
+            context.Response.StatusCode = 404;
+            return;
+        }
+
+        var methods = liveEndpoint.Methods.Select(m => m.ToUpperInvariant()).ToHashSet();
+
         if (!methods.Contains(context.Request.Method))
         {
             logger.LogDebug("[Hookpipe.Endpoint:{EndpointId}] Method not allowed: {Method}",
-                endpoint.Id, context.Request.Method);
+                endpointId, context.Request.Method);
             context.Response.StatusCode = 405;
             return;
         }
 
-        if (endpoint.Validation is not null)
+        if (liveEndpoint.Validation is not null)
         {
             IValidator? validator = null;
 
-            if (endpoint.Validation.Auth is not null)
-                validators.TryGetValue(endpoint.Validation.Auth.Type, out validator);
-            else if (endpoint.Validation.Signature is not null)
-                validators.TryGetValue(endpoint.Validation.Signature.Algorithm, out validator);
+            if (liveEndpoint.Validation.Auth is not null)
+                validators.TryGetValue(liveEndpoint.Validation.Auth.Type, out validator);
+            else if (liveEndpoint.Validation.Signature is not null)
+                validators.TryGetValue(liveEndpoint.Validation.Signature.Algorithm, out validator);
 
-            if (validator is null || !await validator.ValidateAsync(context, endpoint.Validation))
+            if (validator is null || !await validator.ValidateAsync(context, liveEndpoint.Validation))
             {
                 logger.LogDebug("[Hookpipe.Endpoint:{EndpointId}] Validation failed, returning 401",
-                    endpoint.Id);
+                    endpointId);
                 context.Response.StatusCode = 401;
                 await context.Response.WriteAsJsonAsync(new { error = "unauthorized" });
                 return;
             }
 
             logger.LogDebug("[Hookpipe.Endpoint:{EndpointId}] Validation passed ({ValidatorType})",
-                endpoint.Id, validator.Type);
+                endpointId, validator.Type);
         }
 
         try
@@ -102,23 +118,32 @@ foreach (var endpoint in config.Endpoints)
                     pathParams[paramNames[i]] = match.Groups[i + 1].Value;
 
                 logger.LogDebug("[Hookpipe.Endpoint:{EndpointId}] Extracted {Count} path param(s)",
-                    endpoint.Id, pathParams.Count);
+                    endpointId, pathParams.Count);
             }
 
-            var envelope = await envelopeBuilder.BuildAsync(context, endpoint, pathParams);
-            await sinks[endpoint.Sink].ProduceAsync(envelope, context.RequestAborted);
+            if (!sinks.TryGetValue(liveEndpoint.Sink, out var sink))
+            {
+                logger.LogError("[Hookpipe.Endpoint:{EndpointId}] Sink '{SinkId}' not found",
+                    endpointId, liveEndpoint.Sink);
+                context.Response.StatusCode = 500;
+                await context.Response.WriteAsJsonAsync(new { error = "internal_error", endpoint_id = endpointId });
+                return;
+            }
+
+            var envelope = await envelopeBuilder.BuildAsync(context, liveEndpoint, pathParams);
+            await sink.ProduceAsync(envelope, context.RequestAborted);
 
             logger.LogDebug("[Hookpipe.Endpoint:{EndpointId}] Message '{MessageId}' produced to sink '{SinkId}'",
-                endpoint.Id, envelope.Id, endpoint.Sink);
+                endpointId, envelope.Id, liveEndpoint.Sink);
 
             context.Response.StatusCode = 202;
-            await context.Response.WriteAsJsonAsync(new { status = "accepted", endpoint_id = endpoint.Id });
+            await context.Response.WriteAsJsonAsync(new { status = "accepted", endpoint_id = endpointId });
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "[Hookpipe.Endpoint:{EndpointId}] Failed to process request", endpoint.Id);
+            logger.LogError(ex, "[Hookpipe.Endpoint:{EndpointId}] Failed to process request", endpointId);
             context.Response.StatusCode = 500;
-            await context.Response.WriteAsJsonAsync(new { error = "internal_error", endpoint_id = endpoint.Id });
+            await context.Response.WriteAsJsonAsync(new { error = "internal_error", endpoint_id = endpointId });
         }
     });
 }
@@ -128,6 +153,10 @@ app.MapGet("/health", () => Results.Ok());
 app.Lifetime.ApplicationStopping.Register(() =>
 {
     var shutdownLogger = loggerFactory.CreateLogger("Hookpipe.Shutdown");
+
+    fileWatcher.Dispose();
+    shutdownLogger.LogInformation("[Hookpipe.Shutdown] Stopped config file watcher");
+
     foreach (var (id, sink) in sinks)
     {
         shutdownLogger.LogInformation("[Hookpipe.Shutdown] Disposing sink '{SinkId}'", id);

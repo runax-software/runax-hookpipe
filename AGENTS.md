@@ -33,6 +33,8 @@ Two projects only: `Hookpipe.API` (host) and `Hookpipe.Core` (everything else). 
 - **Sealed classes**: All models and implementations are `sealed`.
 - **XML docs**: All public types, members, and interface implementations must have XML docs. Use `/// <inheritdoc />` for interface implementations. Include `<param>`, `<returns>`, `<exception>`, and `<remarks>` tags where applicable.
 - **Logging**: All components use `ILogger<T>` injected via constructor. Follow the logging convention below.
+- **Hot-reload**: `ConfigProvider` holds live config. `ConfigFileWatcher` watches the YAML file. Handlers read `configProvider.Current` per request — don't capture config in closures.
+- **Internal classes**: Use `internal` for classes only used within `Hookpipe.Core` (e.g. `LogHelper`). Classes referenced by `Hookpipe.API` must be `public`.
 
 ## Build and run
 

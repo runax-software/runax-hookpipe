@@ -132,3 +132,22 @@ Handles signatures with or without prefix (e.g. `sha256=<hex>`).
 | `LOKI_URL`                                | Grafana Loki URL (if using Loki logging)            | — (disabled)           |
 
 Secrets referenced by `secret_env`, `token_env`, and `url_env` in config are resolved from environment variables at runtime.
+
+## Hot-reload
+
+Hookpipe watches the config file for changes and reloads automatically. No restart needed.
+
+**What can be changed at runtime:**
+
+- Validation rules (add, remove, or change auth/signature config)
+- Sink routing (point an endpoint to a different sink)
+- Message config (include body, headers, metadata, header filters)
+- Allowed HTTP methods per endpoint
+
+**What requires a restart:**
+
+- Adding new endpoint paths (routes are registered once at startup)
+- Adding new sinks (connections are created at startup)
+- Removing endpoint paths
+
+Changes are debounced (500ms) to avoid reloading multiple times during a save. If the new config is invalid, the previous config is kept and an error is logged.

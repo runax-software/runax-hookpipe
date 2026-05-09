@@ -71,6 +71,10 @@ sinks:
 
 See [Configuration](docs/configuration.md) for full reference.
 
+## Hot-reload
+
+Hookpipe watches the config file and reloads automatically when it changes. Validation rules, sink routing, message config, and allowed methods can be changed without restart. See [Configuration](docs/configuration.md#hot-reload) for details.
+
 ## Sinks
 
 | Sink     | Type       | Status    |

@@ -3,7 +3,7 @@ namespace Hookpipe.Core.Helpers;
 /// <summary>
 /// Utility methods for safe logging.
 /// </summary>
-public static class LogHelper
+internal static class LogHelper
 {
     /// <summary>
     /// Masks credentials in a URI string for safe logging.
