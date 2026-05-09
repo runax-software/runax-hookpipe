@@ -2,6 +2,7 @@ using System.Text.Json;
 using Hookpipe.Core.Config;
 using Hookpipe.Core.Models;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 
 namespace Hookpipe.Core.Services;
 
@@ -9,7 +10,7 @@ namespace Hookpipe.Core.Services;
 /// Builds a <see cref="MessageEnvelope"/> from an incoming HTTP request
 /// based on the matched endpoint configuration.
 /// </summary>
-public static class EnvelopeBuilder
+public sealed class EnvelopeBuilder(ILogger<EnvelopeBuilder> logger)
 {
     /// <summary>
     /// Creates a message envelope from the HTTP context and endpoint config.
@@ -18,7 +19,7 @@ public static class EnvelopeBuilder
     /// <param name="endpoint">The matched endpoint configuration.</param>
     /// <param name="pathParams">Optional path parameters extracted from the URL (e.g. {source} → "github").</param>
     /// <returns>A populated <see cref="MessageEnvelope"/> ready to be sent to a sink.</returns>
-    public static async Task<MessageEnvelope> BuildAsync(
+    public async Task<MessageEnvelope> BuildAsync(
         HttpContext context,
         EndpointConfig endpoint,
         Dictionary<string, string>? pathParams = null)
@@ -56,6 +57,9 @@ public static class EnvelopeBuilder
             }
             catch (JsonException)
             {
+                logger.LogDebug("Failed to parse body as JSON on endpoint '{EndpointId}', using raw string",
+                    endpoint.Id);
+
                 envelope.Body = raw;
             }
         }

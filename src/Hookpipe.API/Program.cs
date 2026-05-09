@@ -27,23 +27,8 @@ var app = builder.Build();
 var loggerFactory = app.Services.GetRequiredService<ILoggerFactory>();
 var configPath = Environment.GetEnvironmentVariable("HOOKPIPE_CONFIG_PATH") ?? "config/hookpipe.yaml";
 var config = ConfigLoader.Load(configPath);
-var sinks = new Dictionary<string, ISink>();
-var validators = new Dictionary<string, IValidator>
-{
-    ["bearer"] = new BearerTokenValidator(),
-    ["hmac-sha256"] = new HmacSha256Validator(),
-};
-
-foreach (var sinkConfig in config.Sinks)
-{
-    sinks[sinkConfig.Id] = sinkConfig.Type switch
-    {
-        "stdout" => new StdoutSink(loggerFactory.CreateLogger<StdoutSink>()),
-        "rabbitmq" => await RabbitMqSink.CreateAsync(sinkConfig, loggerFactory.CreateLogger<RabbitMqSink>()),
-        "kafka" => KafkaSink.Create(sinkConfig, loggerFactory.CreateLogger<KafkaSink>()),
-        _ => throw new InvalidOperationException($"Unknown sink type: '{sinkConfig.Type}'"),
-    };
-}
+var sinks = await SinkFactory.CreateAllAsync(config, loggerFactory);
+var validators = ValidatorFactory.CreateAll();
 
 foreach (var endpoint in config.Endpoints)
 {
@@ -56,6 +41,7 @@ foreach (var endpoint in config.Endpoints)
     var regex = new Regex(pattern, RegexOptions.Compiled);
     var methods = endpoint.Methods.Select(method => method.ToUpperInvariant()).ToHashSet();
     var logger = loggerFactory.CreateLogger($"Hookpipe.Endpoint.{endpoint.Id}");
+    var envelopeBuilder = new EnvelopeBuilder(loggerFactory.CreateLogger<EnvelopeBuilder>());
 
     app.Map(endpoint.Path, async context =>
     {
@@ -94,7 +80,7 @@ foreach (var endpoint in config.Endpoints)
                     pathParams[paramNames[i]] = match.Groups[i + 1].Value;
             }
 
-            var envelope = await EnvelopeBuilder.BuildAsync(context, endpoint, pathParams);
+            var envelope = await envelopeBuilder.BuildAsync(context, endpoint, pathParams);
             await sinks[endpoint.Sink].ProduceAsync(envelope, context.RequestAborted);
 
             context.Response.StatusCode = 202;

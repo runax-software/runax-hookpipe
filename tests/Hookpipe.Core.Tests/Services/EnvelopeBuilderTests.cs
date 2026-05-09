@@ -4,11 +4,15 @@ using FluentAssertions;
 using Hookpipe.Core.Config;
 using Hookpipe.Core.Services;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
+using NSubstitute;
 
 namespace Hookpipe.Core.Tests.Services;
 
 public sealed class EnvelopeBuilderTests
 {
+    private readonly EnvelopeBuilder _builder = new(Substitute.For<ILogger<EnvelopeBuilder>>());
+
     private static EndpointConfig MakeEndpoint(
         bool includeBody = true,
         bool includeHeaders = false,
@@ -50,7 +54,7 @@ public sealed class EnvelopeBuilderTests
         var context = MakeContext("POST", "/test");
         var endpoint = MakeEndpoint(includeBody: false);
 
-        var envelope = await EnvelopeBuilder.BuildAsync(context, endpoint);
+        var envelope = await _builder.BuildAsync(context, endpoint);
 
         envelope.Id.Should().NotBeNullOrEmpty();
         envelope.EndpointId.Should().Be("test-endpoint");
@@ -65,7 +69,7 @@ public sealed class EnvelopeBuilderTests
         var context = MakeContext(body: """{"key":"value"}""");
         var endpoint = MakeEndpoint(includeBody: true);
 
-        var envelope = await EnvelopeBuilder.BuildAsync(context, endpoint);
+        var envelope = await _builder.BuildAsync(context, endpoint);
 
         envelope.Body.Should().NotBeNull();
         var json = (JsonElement)envelope.Body!;
@@ -78,7 +82,7 @@ public sealed class EnvelopeBuilderTests
         var context = MakeContext(body: "plain text body");
         var endpoint = MakeEndpoint(includeBody: true);
 
-        var envelope = await EnvelopeBuilder.BuildAsync(context, endpoint);
+        var envelope = await _builder.BuildAsync(context, endpoint);
 
         envelope.Body.Should().Be("plain text body");
     }
@@ -89,7 +93,7 @@ public sealed class EnvelopeBuilderTests
         var context = MakeContext(body: """{"key":"value"}""");
         var endpoint = MakeEndpoint(includeBody: false);
 
-        var envelope = await EnvelopeBuilder.BuildAsync(context, endpoint);
+        var envelope = await _builder.BuildAsync(context, endpoint);
 
         envelope.Body.Should().BeNull();
     }
@@ -102,7 +106,7 @@ public sealed class EnvelopeBuilderTests
         context.Request.Headers["X-Other"] = "other-value";
         var endpoint = MakeEndpoint(includeBody: false, includeHeaders: true);
 
-        var envelope = await EnvelopeBuilder.BuildAsync(context, endpoint);
+        var envelope = await _builder.BuildAsync(context, endpoint);
 
         envelope.Headers.Should().ContainKey("X-Custom");
         envelope.Headers.Should().ContainKey("X-Other");
@@ -116,7 +120,7 @@ public sealed class EnvelopeBuilderTests
         context.Request.Headers["X-Unwanted"] = "no";
         var endpoint = MakeEndpoint(includeBody: false, includeHeaders: true, headerFilter: ["X-Wanted"]);
 
-        var envelope = await EnvelopeBuilder.BuildAsync(context, endpoint);
+        var envelope = await _builder.BuildAsync(context, endpoint);
 
         envelope.Headers.Should().ContainKey("X-Wanted");
         envelope.Headers.Should().NotContainKey("X-Unwanted");
@@ -129,7 +133,7 @@ public sealed class EnvelopeBuilderTests
         context.Request.Headers["X-Custom"] = "value";
         var endpoint = MakeEndpoint(includeBody: false, includeHeaders: false);
 
-        var envelope = await EnvelopeBuilder.BuildAsync(context, endpoint);
+        var envelope = await _builder.BuildAsync(context, endpoint);
 
         envelope.Headers.Should().BeEmpty();
     }
@@ -142,7 +146,7 @@ public sealed class EnvelopeBuilderTests
             includeBody: false,
             metadata: new Dictionary<string, string> { ["env"] = "production" });
 
-        var envelope = await EnvelopeBuilder.BuildAsync(context, endpoint);
+        var envelope = await _builder.BuildAsync(context, endpoint);
 
         envelope.Metadata.Should().ContainKey("env").WhoseValue.Should().Be("production");
     }
@@ -156,7 +160,7 @@ public sealed class EnvelopeBuilderTests
             metadata: new Dictionary<string, string> { ["source"] = "{source}" });
         var pathParams = new Dictionary<string, string> { ["source"] = "github" };
 
-        var envelope = await EnvelopeBuilder.BuildAsync(context, endpoint, pathParams);
+        var envelope = await _builder.BuildAsync(context, endpoint, pathParams);
 
         envelope.Metadata.Should().ContainKey("source").WhoseValue.Should().Be("github");
     }
@@ -167,7 +171,7 @@ public sealed class EnvelopeBuilderTests
         var context = MakeContext();
         var endpoint = MakeEndpoint(includeBody: false);
 
-        var envelope = await EnvelopeBuilder.BuildAsync(context, endpoint);
+        var envelope = await _builder.BuildAsync(context, endpoint);
 
         envelope.Metadata.Should().BeEmpty();
     }
@@ -179,8 +183,8 @@ public sealed class EnvelopeBuilderTests
         var context2 = MakeContext();
         var endpoint = MakeEndpoint(includeBody: false);
 
-        var envelope1 = await EnvelopeBuilder.BuildAsync(context1, endpoint);
-        var envelope2 = await EnvelopeBuilder.BuildAsync(context2, endpoint);
+        var envelope1 = await _builder.BuildAsync(context1, endpoint);
+        var envelope2 = await _builder.BuildAsync(context2, endpoint);
 
         envelope1.Id.Should().NotBe(envelope2.Id);
     }
