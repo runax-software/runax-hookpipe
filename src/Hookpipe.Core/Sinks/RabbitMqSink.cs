@@ -80,8 +80,8 @@ public sealed class RabbitMqSink : ISink, IAsyncDisposable
         }
 
         logger.LogInformation(
-            "[Hookpipe.Sink:rabbitmq:{SinkId}] Connected, exchange='{Exchange}', routing_key='{RoutingKey}'",
-            sinkConfig.Id, exchange, routingKey);
+            "[Hookpipe.Sink:rabbitmq:{SinkId}] Connected to {Url}, exchange='{Exchange}', routing_key='{RoutingKey}'",
+            sinkConfig.Id, Helpers.LogHelper.MaskUri(url), exchange, routingKey);
 
         return new RabbitMqSink(logger, connection, channel, exchange, routingKey, sinkConfig.Id);
     }
