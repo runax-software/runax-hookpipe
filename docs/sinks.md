@@ -79,6 +79,36 @@ sinks:
 - Adds `hookpipe.message.id` and `hookpipe.endpoint.id` as Kafka headers
 - Flushes pending messages on shutdown (5s timeout)
 
+### HTTP Relay
+
+Forwards message envelopes as JSON POST requests to a target URL. Useful for relaying webhooks to another service.
+
+**Type:** `http`
+
+```yaml
+sinks:
+    - id: relay-downstream
+      type: http
+      settings:
+          url_env: HTTP_RELAY_URL
+          timeout_seconds: "30"
+```
+
+**Settings:**
+
+| Key               | Description                          | Default          |
+| ----------------- | ------------------------------------ | ---------------- |
+| `url_env`         | Env var name holding the target URL  | `HTTP_RELAY_URL` |
+| `timeout_seconds` | HTTP request timeout in seconds      | `30`             |
+
+**Behavior:**
+
+- Sends a `POST` request with `Content-Type: application/json`
+- Body is the JSON-serialized message envelope
+- Throws on non-success status codes (4xx, 5xx)
+- Logs warning on failed relay with status code
+- Credentials in URLs are masked in logs
+
 ## Planned sinks
 
 - **SQS** — AWS Simple Queue Service

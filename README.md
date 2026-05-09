@@ -77,12 +77,13 @@ Hookpipe watches the config file and reloads automatically when it changes. Vali
 
 ## Sinks
 
-| Sink     | Type       | Status    |
-| -------- | ---------- | --------- |
-| Stdout   | `stdout`   | Available |
-| RabbitMQ | `rabbitmq` | Available |
-| Kafka    | `kafka`    | Available |
-| SQS      | `sqs`      | Planned   |
+| Sink       | Type       | Status    |
+| ---------- | ---------- | --------- |
+| Stdout     | `stdout`   | Available |
+| RabbitMQ   | `rabbitmq` | Available |
+| Kafka      | `kafka`    | Available |
+| HTTP Relay | `http`     | Available |
+| SQS        | `sqs`      | Planned   |
 
 See [Sinks](docs/sinks.md) for details.
 

@@ -85,6 +85,19 @@ sinks:
 
 Uses idempotent producer with `Acks.All`. Message key is the endpoint ID.
 
+#### HTTP Relay
+
+Forwards messages to another HTTP endpoint.
+
+```yaml
+sinks:
+    - id: relay-downstream
+      type: http
+      settings:
+          url_env: HTTP_RELAY_URL # Env var holding the target URL
+          timeout_seconds: "30" # Request timeout (default: 30)
+```
+
 ## Validation
 
 Optional per-endpoint request validation. Only one method per endpoint.
@@ -127,6 +140,7 @@ Handles signatures with or without prefix (e.g. `sha256=<hex>`).
 | `Logging__LogLevel__Microsoft.AspNetCore` | ASP.NET log level                                   | `Warning`              |
 | `RABBITMQ_URL`                            | RabbitMQ connection string (if using RabbitMQ sink) | —                      |
 | `KAFKA_BROKERS`                           | Kafka broker list (if using Kafka sink)             | —                      |
+| `HTTP_RELAY_URL`                          | HTTP relay target URL (if using HTTP sink)          | —                      |
 | `SEQ_URL`                                 | Seq server URL (if using Seq logging)               | — (disabled)           |
 | `SEQ_API_KEY`                             | Seq API key                                         | — (optional)           |
 | `LOKI_URL`                                | Grafana Loki URL (if using Loki logging)            | — (disabled)           |
