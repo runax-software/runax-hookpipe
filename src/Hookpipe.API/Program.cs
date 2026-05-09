@@ -24,12 +24,16 @@ builder.Host.UseSerilog((context, config) =>
 });
 
 var app = builder.Build();
+
+app.UseSerilogRequestLogging();
+
 var loggerFactory = app.Services.GetRequiredService<ILoggerFactory>();
 var startupLogger = loggerFactory.CreateLogger("Hookpipe.Startup");
-
 var configPath = Environment.GetEnvironmentVariable("HOOKPIPE_CONFIG_PATH") ?? "config/hookpipe.yaml";
 var config = ConfigLoader.Load(configPath);
-startupLogger.LogInformation("[Hookpipe.Config] Loaded {EndpointCount} endpoint(s) and {SinkCount} sink(s) from '{Path}'",
+
+startupLogger.LogInformation(
+    "[Hookpipe.Config] Loaded {EndpointCount} endpoint(s) and {SinkCount} sink(s) from '{Path}'",
     config.Endpoints.Count, config.Sinks.Count, configPath);
 
 var sinks = await SinkFactory.CreateAllAsync(config, loggerFactory);
