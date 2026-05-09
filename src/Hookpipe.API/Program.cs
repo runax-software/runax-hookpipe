@@ -8,6 +8,9 @@ using Serilog.Sinks.Grafana.Loki;
 
 var builder = WebApplication.CreateBuilder(args);
 
+if (int.TryParse(Environment.GetEnvironmentVariable("HOOKPIPE_MAX_BODY_SIZE_MB"), out var maxBodyMb))
+    builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = maxBodyMb * 1024 * 1024);
+
 builder.Host.UseSerilog((context, config) =>
 {
     config.ReadFrom.Configuration(context.Configuration).WriteTo.Console();

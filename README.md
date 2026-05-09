@@ -116,6 +116,7 @@ See [Message Envelope](docs/message-envelope.md) for full format.
 | Variable                     | Description                | Default                |
 | ---------------------------- | -------------------------- | ---------------------- |
 | `HOOKPIPE_CONFIG_PATH`       | Path to YAML config        | `config/hookpipe.yaml` |
+| `HOOKPIPE_MAX_BODY_SIZE_MB`  | Max request body size (MB) | `~28.6` (Kestrel default) |
 | `RABBITMQ_URL`               | RabbitMQ connection string | —                      |
 | `KAFKA_BROKERS`              | Kafka broker list          | —                      |
 | `SEQ_URL`                    | Seq server URL             | — (disabled)           |
