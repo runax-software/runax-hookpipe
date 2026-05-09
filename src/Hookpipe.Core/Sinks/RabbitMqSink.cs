@@ -9,20 +9,22 @@ using RabbitMQ.Client;
 namespace Hookpipe.Core.Sinks;
 
 /// <summary>
-/// Sink that publishes messages envelopes to a RabbitMq exchange.
-/// Settings: url_env, exchange, routing_key (all from <see cref="SinkConfig.Settings"/>).
+/// Sink that publishes message envelopes to a RabbitMQ exchange as persistent JSON messages.
+/// Declares the exchange as topic/durable on startup.
+/// Settings: url_env, exchange, routing_key (from <see cref="SinkConfig.Settings"/>).
 /// </summary>
 public sealed class RabbitMqSink : ISink, IAsyncDisposable
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
     };
 
     private readonly ILogger<RabbitMqSink> _logger;
     private readonly string _exchange;
     private readonly string _routingKey;
+    private readonly string _sinkId;
     private readonly IConnection _connection;
     private readonly IChannel _channel;
 
@@ -31,13 +33,15 @@ public sealed class RabbitMqSink : ISink, IAsyncDisposable
         IConnection connection,
         IChannel channel,
         string exchange,
-        string routingKey)
+        string routingKey,
+        string sinkId)
     {
         _logger = logger;
         _connection = connection;
         _channel = channel;
         _exchange = exchange;
         _routingKey = routingKey;
+        _sinkId = sinkId;
     }
 
     /// <inheritdoc />
@@ -46,6 +50,10 @@ public sealed class RabbitMqSink : ISink, IAsyncDisposable
     /// <summary>
     /// Creates a new RabbitMQ sink from the given config settings.
     /// </summary>
+    /// <param name="sinkConfig">Sink configuration containing connection and exchange settings.</param>
+    /// <param name="logger">Logger for this sink instance.</param>
+    /// <returns>A configured <see cref="RabbitMqSink"/> connected and ready to publish.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when the URL env var is not set.</exception>
     public static async Task<RabbitMqSink> CreateAsync(SinkConfig sinkConfig, ILogger<RabbitMqSink> logger)
     {
         var urlEnv = sinkConfig.Settings.GetValueOrDefault("url_env", "RABBITMQ_URL");
@@ -61,16 +69,21 @@ public sealed class RabbitMqSink : ISink, IAsyncDisposable
         var channel = await connection.CreateChannelAsync();
 
         if (!string.IsNullOrEmpty(exchange))
+        {
             await channel.ExchangeDeclareAsync(
                 exchange: exchange,
                 type: ExchangeType.Topic,
                 durable: true);
 
-        logger.LogInformation(
-            "RabbitMQ sink '{SinkId}' connected to {Url}, exchange='{Exchange}', routing_key='{RoutingKey}'",
-            sinkConfig.Id, url, exchange, routingKey);
+            logger.LogDebug("[Hookpipe.Sink:rabbitmq:{SinkId}] Declared exchange '{Exchange}' (topic, durable)",
+                sinkConfig.Id, exchange);
+        }
 
-        return new RabbitMqSink(logger, connection, channel, exchange, routingKey);
+        logger.LogInformation(
+            "[Hookpipe.Sink:rabbitmq:{SinkId}] Connected, exchange='{Exchange}', routing_key='{RoutingKey}'",
+            sinkConfig.Id, exchange, routingKey);
+
+        return new RabbitMqSink(logger, connection, channel, exchange, routingKey, sinkConfig.Id);
     }
 
     /// <inheritdoc />
@@ -94,13 +107,15 @@ public sealed class RabbitMqSink : ISink, IAsyncDisposable
             body: body,
             cancellationToken: cancellationToken);
 
-        _logger.LogDebug("Published message '{MessageId}' to exchange='{Exchange}' routing_key='{RoutingKey}'",
-            message.Id, _exchange, _routingKey);
+        _logger.LogDebug(
+            "[Hookpipe.Sink:rabbitmq:{SinkId}] Published message '{MessageId}' to exchange='{Exchange}' routing_key='{RoutingKey}'",
+            _sinkId, message.Id, _exchange, _routingKey);
     }
 
     /// <inheritdoc />
     public async ValueTask DisposeAsync()
     {
+        _logger.LogDebug("[Hookpipe.Sink:rabbitmq:{SinkId}] Closing connection", _sinkId);
         await _channel.CloseAsync();
         await _connection.CloseAsync();
     }

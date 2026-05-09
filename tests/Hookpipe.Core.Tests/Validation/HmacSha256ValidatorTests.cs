@@ -4,6 +4,8 @@ using FluentAssertions;
 using Hookpipe.Core.Config;
 using Hookpipe.Core.Validation;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
+using NSubstitute;
 
 namespace Hookpipe.Core.Tests.Validation;
 
@@ -11,7 +13,7 @@ public sealed class HmacSha256ValidatorTests : IDisposable
 {
     private const string EnvVar = "TEST_HMAC_SECRET";
     private const string Secret = "test-secret-key";
-    private readonly HmacSha256Validator _validator = new();
+    private readonly HmacSha256Validator _validator = new(Substitute.For<ILogger<HmacSha256Validator>>());
 
     public void Dispose()
     {

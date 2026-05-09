@@ -9,6 +9,8 @@ namespace Hookpipe.Core.Services;
 /// <summary>
 /// Builds a <see cref="MessageEnvelope"/> from an incoming HTTP request
 /// based on the matched endpoint configuration.
+/// Parses JSON bodies when possible, falls back to raw string.
+/// Resolves path parameter placeholders in metadata values.
 /// </summary>
 public sealed class EnvelopeBuilder(ILogger<EnvelopeBuilder> logger)
 {
@@ -17,13 +19,16 @@ public sealed class EnvelopeBuilder(ILogger<EnvelopeBuilder> logger)
     /// </summary>
     /// <param name="context">The incoming HTTP request context.</param>
     /// <param name="endpoint">The matched endpoint configuration.</param>
-    /// <param name="pathParams">Optional path parameters extracted from the URL (e.g. {source} → "github").</param>
+    /// <param name="pathParams">Optional path parameters extracted from the URL (e.g. {source} -> "github").</param>
     /// <returns>A populated <see cref="MessageEnvelope"/> ready to be sent to a sink.</returns>
     public async Task<MessageEnvelope> BuildAsync(
         HttpContext context,
         EndpointConfig endpoint,
         Dictionary<string, string>? pathParams = null)
     {
+        logger.LogDebug("[Hookpipe.Envelope] Building for endpoint '{EndpointId}', {Method} {Path}",
+            endpoint.Id, context.Request.Method, context.Request.Path.Value);
+
         var envelope = new MessageEnvelope
         {
             Id = Guid.NewGuid().ToString(),
@@ -41,6 +46,8 @@ public sealed class EnvelopeBuilder(ILogger<EnvelopeBuilder> logger)
             foreach (var header in context.Request.Headers)
                 if (filter is null || filter.Contains(header.Key, StringComparer.OrdinalIgnoreCase))
                     envelope.Headers[header.Key] = header.Value.ToString();
+
+            logger.LogDebug("[Hookpipe.Envelope] Included {Count} header(s)", envelope.Headers.Count);
         }
 
         if (endpoint.Message.IncludeBody)
@@ -54,12 +61,12 @@ public sealed class EnvelopeBuilder(ILogger<EnvelopeBuilder> logger)
             try
             {
                 envelope.Body = JsonSerializer.Deserialize<JsonElement>(raw);
+                logger.LogDebug("[Hookpipe.Envelope] Parsed body as JSON");
             }
             catch (JsonException)
             {
-                logger.LogDebug("Failed to parse body as JSON on endpoint '{EndpointId}', using raw string",
+                logger.LogDebug("[Hookpipe.Envelope] Body is not JSON on endpoint '{EndpointId}', using raw string",
                     endpoint.Id);
-
                 envelope.Body = raw;
             }
         }
@@ -74,6 +81,8 @@ public sealed class EnvelopeBuilder(ILogger<EnvelopeBuilder> logger)
 
             envelope.Metadata[key] = resolved;
         }
+
+        logger.LogDebug("[Hookpipe.Envelope] Resolved {Count} metadata key(s)", envelope.Metadata.Count);
 
         return envelope;
     }

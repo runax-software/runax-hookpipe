@@ -19,10 +19,13 @@ public static class SinkFactory
         HookpipeConfig config,
         ILoggerFactory loggerFactory)
     {
+        var logger = loggerFactory.CreateLogger(typeof(SinkFactory));
         var sinks = new Dictionary<string, ISink>();
 
         foreach (var sinkConfig in config.Sinks)
         {
+            logger.LogDebug("[Hookpipe.Sink:{Type}:{Id}] Creating", sinkConfig.Type, sinkConfig.Id);
+
             sinks[sinkConfig.Id] = sinkConfig.Type switch
             {
                 "stdout" => new StdoutSink(loggerFactory.CreateLogger<StdoutSink>()),
@@ -30,8 +33,11 @@ public static class SinkFactory
                 "kafka" => KafkaSink.Create(sinkConfig, loggerFactory.CreateLogger<KafkaSink>()),
                 _ => throw new InvalidOperationException($"Unknown sink type: '{sinkConfig.Type}'"),
             };
+
+            logger.LogInformation("[Hookpipe.Sink:{Type}:{Id}] Initialized", sinkConfig.Type, sinkConfig.Id);
         }
 
+        logger.LogInformation("[Hookpipe.Sink] Initialized {Count} sink(s)", sinks.Count);
         return sinks;
     }
 }

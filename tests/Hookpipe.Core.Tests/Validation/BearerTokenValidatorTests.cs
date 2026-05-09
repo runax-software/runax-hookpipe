@@ -2,13 +2,15 @@ using FluentAssertions;
 using Hookpipe.Core.Config;
 using Hookpipe.Core.Validation;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
+using NSubstitute;
 
 namespace Hookpipe.Core.Tests.Validation;
 
 public sealed class BearerTokenValidatorTests : IDisposable
 {
     private const string EnvVar = "TEST_BEARER_TOKEN";
-    private readonly BearerTokenValidator _validator = new();
+    private readonly BearerTokenValidator _validator = new(Substitute.For<ILogger<BearerTokenValidator>>());
 
     public void Dispose()
     {

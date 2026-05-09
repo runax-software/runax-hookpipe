@@ -8,7 +8,8 @@ using Microsoft.Extensions.Logging;
 namespace Hookpipe.Core.Sinks;
 
 /// <summary>
-/// Sink that produces message envelope to a Kafka topic.
+/// Sink that produces message envelopes to a Kafka topic.
+/// Uses idempotent producer with <see cref="Acks.All"/> for reliable delivery.
 /// Settings: brokers_env, topic (from <see cref="SinkConfig.Settings"/>).
 /// </summary>
 public sealed class KafkaSink : ISink, IDisposable
@@ -16,23 +17,34 @@ public sealed class KafkaSink : ISink, IDisposable
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
     };
 
     private readonly ILogger<KafkaSink> _logger;
     private readonly IProducer<string, string> _producer;
     private readonly string _topic;
+    private readonly string _sinkId;
 
-    private KafkaSink(ILogger<KafkaSink> logger, IProducer<string, string> producer, string topic)
+    private KafkaSink(ILogger<KafkaSink> logger, IProducer<string, string> producer, string topic, string sinkId)
     {
         _logger = logger;
         _producer = producer;
         _topic = topic;
+        _sinkId = sinkId;
     }
 
     /// <inheritdoc />
     public string Type => "kafka";
 
+    /// <summary>
+    /// Creates a new Kafka sink from the given config settings.
+    /// </summary>
+    /// <param name="sinkConfig">Sink configuration containing broker and topic settings.</param>
+    /// <param name="logger">Logger for this sink instance.</param>
+    /// <returns>A configured <see cref="KafkaSink"/> ready to produce messages.</returns>
+    /// <exception cref="InvalidOperationException">
+    /// Thrown when the broker env var is not set or the topic setting is missing.
+    /// </exception>
     public static KafkaSink Create(SinkConfig sinkConfig, ILogger<KafkaSink> logger)
     {
         var brokersEnv = sinkConfig.Settings.GetValueOrDefault("brokers_env", "KAFKA_BROKERS");
@@ -54,10 +66,10 @@ public sealed class KafkaSink : ISink, IDisposable
 
         var producer = new ProducerBuilder<string, string>(config).Build();
 
-        logger.LogInformation("Kafka sink '{SinkId}' connected to {Brokers}, topic='{Topic}'", sinkConfig.Id, brokers,
-            topic);
+        logger.LogInformation("[Hookpipe.Sink:kafka:{SinkId}] Connected to {Brokers}, topic='{Topic}'",
+            sinkConfig.Id, brokers, topic);
 
-        return new KafkaSink(logger, producer, topic);
+        return new KafkaSink(logger, producer, topic, sinkConfig.Id);
     }
 
     /// <inheritdoc />
@@ -79,8 +91,8 @@ public sealed class KafkaSink : ISink, IDisposable
         var result = await _producer.ProduceAsync(_topic, kafkaMessage, cancellationToken);
 
         _logger.LogDebug(
-            "Produced message '{MessageId}' to topic='{Topic}' partition={Partition} offset={Offset}",
-            message.Id, _topic, result.Partition.Value, result.Offset.Value);
+            "[Hookpipe.Sink:kafka:{SinkId}] Published message '{MessageId}' to topic='{Topic}' partition={Partition} offset={Offset}",
+            _sinkId, message.Id, _topic, result.Partition.Value, result.Offset.Value);
     }
 
     /// <inheritdoc />
