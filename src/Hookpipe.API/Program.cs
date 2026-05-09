@@ -3,6 +3,8 @@ using Hookpipe.Core.Config;
 using Hookpipe.Core.Services;
 using Hookpipe.Core.Sinks;
 using Hookpipe.Core.Validation;
+using Hookpipe.Core.Metrics;
+using Prometheus;
 using Serilog;
 using Serilog.Sinks.Grafana.Loki;
 
@@ -29,6 +31,8 @@ builder.Host.UseSerilog((context, config) =>
 var app = builder.Build();
 
 app.UseSerilogRequestLogging();
+app.UseHttpMetrics();
+app.MapMetrics();
 
 var loggerFactory = app.Services.GetRequiredService<ILoggerFactory>();
 var startupLogger = loggerFactory.CreateLogger("Hookpipe.Startup");
@@ -64,12 +68,15 @@ foreach (var endpoint in configProvider.Current.Endpoints)
 
     app.Map(endpoint.Path, async context =>
     {
+        using var timer = HookpipeMetrics.RequestDuration.WithLabels(endpointId).NewTimer();
+
         // Look up live config for this endpoint
         var liveEndpoint = configProvider.Current.Endpoints.FirstOrDefault(e => e.Id == endpointId);
         if (liveEndpoint is null)
         {
             logger.LogDebug("[Hookpipe.Endpoint:{EndpointId}] Endpoint removed from config, returning 404",
                 endpointId);
+            HookpipeMetrics.RequestsTotal.WithLabels(endpointId, context.Request.Method, "404").Inc();
             context.Response.StatusCode = 404;
             return;
         }
@@ -80,6 +87,7 @@ foreach (var endpoint in configProvider.Current.Endpoints)
         {
             logger.LogDebug("[Hookpipe.Endpoint:{EndpointId}] Method not allowed: {Method}",
                 endpointId, context.Request.Method);
+            HookpipeMetrics.RequestsTotal.WithLabels(endpointId, context.Request.Method, "405").Inc();
             context.Response.StatusCode = 405;
             return;
         }
@@ -95,8 +103,9 @@ foreach (var endpoint in configProvider.Current.Endpoints)
 
             if (validator is null || !await validator.ValidateAsync(context, liveEndpoint.Validation))
             {
-                logger.LogDebug("[Hookpipe.Endpoint:{EndpointId}] Validation failed, returning 401",
-                    endpointId);
+                logger.LogDebug("[Hookpipe.Endpoint:{EndpointId}] Validation failed, returning 401", endpointId);
+                HookpipeMetrics.ValidationFailuresTotal.WithLabels(endpointId, validator?.Type ?? "unknown").Inc();
+                HookpipeMetrics.RequestsTotal.WithLabels(endpointId, context.Request.Method, "401").Inc();
                 context.Response.StatusCode = 401;
                 await context.Response.WriteAsJsonAsync(new { error = "unauthorized" });
                 return;
@@ -129,20 +138,24 @@ foreach (var endpoint in configProvider.Current.Endpoints)
                 if (!sinks.TryGetValue(sinkId, out var sink))
                 {
                     logger.LogError("[Hookpipe.Endpoint:{EndpointId}] Sink '{SinkId}' not found", endpointId, sinkId);
+                    HookpipeMetrics.SinkErrorsTotal.WithLabels(endpointId, sinkId).Inc();
                     continue;
                 }
 
                 await sink.ProduceAsync(envelope, context.RequestAborted);
+                HookpipeMetrics.MessagesProducedTotal.WithLabels(endpointId, sinkId).Inc();
                 logger.LogDebug("[Hookpipe.Endpoint:{EndpointId}] Message '{MessageId}' produced to sink '{SinkId}'",
                     endpointId, envelope.Id, sinkId);
             }
 
+            HookpipeMetrics.RequestsTotal.WithLabels(endpointId, context.Request.Method, "202").Inc();
             context.Response.StatusCode = 202;
             await context.Response.WriteAsJsonAsync(new { status = "accepted", endpoint_id = endpointId });
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "[Hookpipe.Endpoint:{EndpointId}] Failed to process request", endpointId);
+            HookpipeMetrics.RequestsTotal.WithLabels(endpointId, context.Request.Method, "500").Inc();
             context.Response.StatusCode = 500;
             await context.Response.WriteAsJsonAsync(new { error = "internal_error", endpoint_id = endpointId });
         }

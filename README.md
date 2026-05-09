@@ -132,10 +132,13 @@ See [Configuration](docs/configuration.md) for all env vars and [Logging](docs/l
 
 ## Endpoints
 
-| Method | Path      | Description                 |
-| ------ | --------- | --------------------------- |
-| `GET`  | `/health` | Liveness check              |
-| `*`    | `/*`      | Dynamic — defined in config |
+| Method | Path       | Description                 |
+| ------ | ---------- | --------------------------- |
+| `GET`  | `/health`  | Liveness check              |
+| `GET`  | `/metrics` | Prometheus metrics          |
+| `*`    | `/*`       | Dynamic — defined in config |
+
+See [Metrics](docs/metrics.md) for available metrics and Prometheus scrape config.
 
 ## Contributing
 

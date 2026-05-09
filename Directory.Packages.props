@@ -12,6 +12,10 @@
     <PackageVersion Include="Serilog.Sinks.Seq" Version="9.0.0" />
     <PackageVersion Include="Serilog.Sinks.Grafana.Loki" Version="8.3.2" />
 
+    <!-- Metrics -->
+    <PackageVersion Include="prometheus-net" Version="8.2.1" />
+    <PackageVersion Include="prometheus-net.AspNetCore" Version="8.2.1" />
+
     <!-- Sinks -->
     <PackageVersion Include="AWSSDK.SQS" Version="4.0.2.14" />
     <PackageVersion Include="Confluent.Kafka" Version="2.13.0" />
