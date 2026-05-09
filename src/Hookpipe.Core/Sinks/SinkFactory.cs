@@ -32,6 +32,7 @@ public static class SinkFactory
                 "rabbitmq" => await RabbitMqSink.CreateAsync(sinkConfig, loggerFactory.CreateLogger<RabbitMqSink>()),
                 "kafka" => KafkaSink.Create(sinkConfig, loggerFactory.CreateLogger<KafkaSink>()),
                 "http" => HttpRelaySink.Create(sinkConfig, loggerFactory.CreateLogger<HttpRelaySink>()),
+                "sqs" => SqsSink.Create(sinkConfig, loggerFactory.CreateLogger<SqsSink>()),
                 _ => throw new InvalidOperationException($"Unknown sink type: '{sinkConfig.Type}'"),
             };
 

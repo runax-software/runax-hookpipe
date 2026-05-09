@@ -84,7 +84,7 @@ Hookpipe watches the config file and reloads automatically when it changes. Vali
 | RabbitMQ   | `rabbitmq` | Available |
 | Kafka      | `kafka`    | Available |
 | HTTP Relay | `http`     | Available |
-| SQS        | `sqs`      | Planned   |
+| SQS        | `sqs`      | Available |
 
 See [Sinks](docs/sinks.md) for details.
 

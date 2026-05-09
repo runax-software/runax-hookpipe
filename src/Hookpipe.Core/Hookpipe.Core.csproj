@@ -5,6 +5,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="AWSSDK.SQS" />
     <PackageReference Include="Confluent.Kafka" />
     <PackageReference Include="YamlDotNet" />
     <PackageReference Include="RabbitMQ.Client" />

@@ -109,9 +109,34 @@ sinks:
 - Logs warning on failed relay with status code
 - Credentials in URLs are masked in logs
 
-## Planned sinks
+### SQS
 
-- **SQS** — AWS Simple Queue Service
+Sends message envelopes to an AWS SQS queue.
+
+**Type:** `sqs`
+
+```yaml
+sinks:
+    - id: sqs-main
+      type: sqs
+      settings:
+          queue_url_env: SQS_QUEUE_URL
+          region_env: AWS_REGION
+```
+
+**Settings:**
+
+| Key             | Description                              | Default         |
+| --------------- | ---------------------------------------- | --------------- |
+| `queue_url_env` | Env var name holding the SQS queue URL   | `SQS_QUEUE_URL` |
+| `region_env`    | Env var name holding the AWS region      | `AWS_REGION`    |
+
+**Behavior:**
+
+- Sends JSON-serialized envelope as the message body
+- Adds `hookpipe.message.id` and `hookpipe.endpoint.id` as SQS message attributes
+- AWS credentials are resolved via the default credential chain (env vars, IAM role, `~/.aws/credentials`)
+- Region is optional — uses SDK default if not set
 
 ## Creating a custom sink
 

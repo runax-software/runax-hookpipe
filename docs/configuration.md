@@ -103,6 +103,21 @@ sinks:
 
 Uses idempotent producer with `Acks.All`. Message key is the endpoint ID.
 
+#### SQS
+
+Sends messages to an AWS SQS queue.
+
+```yaml
+sinks:
+    - id: sqs-main
+      type: sqs
+      settings:
+          queue_url_env: SQS_QUEUE_URL # Env var holding the queue URL
+          region_env: AWS_REGION # Env var holding the region (optional)
+```
+
+AWS credentials are resolved via the default credential chain.
+
 #### HTTP Relay
 
 Forwards messages to another HTTP endpoint.
@@ -159,6 +174,8 @@ Handles signatures with or without prefix (e.g. `sha256=<hex>`).
 | `RABBITMQ_URL`                            | RabbitMQ connection string (if using RabbitMQ sink) | —                      |
 | `KAFKA_BROKERS`                           | Kafka broker list (if using Kafka sink)             | —                      |
 | `HTTP_RELAY_URL`                          | HTTP relay target URL (if using HTTP sink)          | —                      |
+| `SQS_QUEUE_URL`                           | SQS queue URL (if using SQS sink)                   | —                      |
+| `AWS_REGION`                              | AWS region for SQS (optional)                       | SDK default            |
 | `SEQ_URL`                                 | Seq server URL (if using Seq logging)               | — (disabled)           |
 | `SEQ_API_KEY`                             | Seq API key                                         | — (optional)           |
 | `LOKI_URL`                                | Grafana Loki URL (if using Loki logging)            | — (disabled)           |

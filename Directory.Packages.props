@@ -13,6 +13,7 @@
     <PackageVersion Include="Serilog.Sinks.Grafana.Loki" Version="8.3.2" />
 
     <!-- Sinks -->
+    <PackageVersion Include="AWSSDK.SQS" Version="4.0.2.14" />
     <PackageVersion Include="Confluent.Kafka" Version="2.13.0" />
     <PackageVersion Include="RabbitMQ.Client" Version="7.2.1" />
 
