@@ -1,7 +1,6 @@
 # Hookpipe
 
-[![Docker Hub](https://img.shields.io/docker/v/runaxsoftware/hookpipe?label=Docker%20Hub&sort=semver)](https://hub.docker.com/r/runaxsoftware/hookpipe)
-[![Docker Pulls](https://img.shields.io/docker/pulls/runaxsoftware/hookpipe)](https://hub.docker.com/r/runaxsoftware/hookpipe)
+[![GHCR](https://img.shields.io/badge/GHCR-hookpipe-blue?logo=github)](https://github.com/runax-software/runax-hookpipe/pkgs/container/hookpipe)
 [![CI](https://github.com/runax-software/runax-hookpipe/actions/workflows/ci.yml/badge.svg)](https://github.com/runax-software/runax-hookpipe/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
@@ -27,7 +26,7 @@ External service (GitHub, Stripe, Coolify, etc.)
 docker run -p 8080:8080 \
   -v ./config:/app/config \
   -e RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672 \
-  runaxsoftware/hookpipe:latest
+  ghcr.io/runax-software/hookpipe:latest
 ```
 
 ### From source
