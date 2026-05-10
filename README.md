@@ -91,13 +91,17 @@ Hookpipe watches the config file and reloads automatically when it changes. Vali
 
 ## Sinks
 
-| Sink       | Type       | Status    |
-| ---------- | ---------- | --------- |
-| Stdout     | `stdout`   | Available |
-| RabbitMQ   | `rabbitmq` | Available |
-| Kafka      | `kafka`    | Available |
-| HTTP Relay | `http`     | Available |
-| SQS        | `sqs`      | Available |
+| Sink            | Type             | Status    |
+| --------------- | ---------------- | --------- |
+| Stdout          | `stdout`         | Available |
+| RabbitMQ        | `rabbitmq`       | Available |
+| Kafka           | `kafka`          | Available |
+| HTTP Relay      | `http`           | Available |
+| SQS             | `sqs`            | Available |
+| Redis Streams   | `redis-stream`   | Available |
+| Google Pub/Sub  | `google-pubsub`  | Available |
+| SNS             | `sns`            | Available |
+| EventBridge     | `eventbridge`    | Available |
 
 See [Sinks](docs/sinks.md) for details.
 

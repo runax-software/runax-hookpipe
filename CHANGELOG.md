@@ -1,5 +1,45 @@
 # Changelog
 
+## v0.2.0
+
+### New sinks
+- **Redis Streams** (`redis-stream`) — append messages to Redis streams
+- **Google Pub/Sub** (`google-pubsub`) — publish to GCP Pub/Sub topics with emulator support
+- **SNS** (`sns`) — publish to AWS SNS topics via LocalStack-compatible `service_url_env`
+- **EventBridge** (`eventbridge`) — put events to AWS EventBridge buses with configurable source and detail type
+
+### New validators
+- **Stripe signature** (`stripe-v1`) — Stripe's v1 signing scheme with timestamp freshness check
+- **API key** (`api-key`) — custom header + key validation
+- **IP allowlist** (`ip-allowlist`) — restrict by IP address or CIDR range
+
+### Features
+- **Retry policy** — per-sink exponential backoff with jitter via Polly
+- **Rate limiting** — per-endpoint fixed window rate limiter, returns 429
+- **Fan-out** — route one endpoint to multiple sinks (`sinks:` list)
+- **Config hot-reload** — file watcher detects changes, reloads without restart
+
+### Observability
+- **Prometheus metrics** at `/metrics` — requests, messages, errors, latency, validation failures
+- **Structured logging** with `[Hookpipe.Module:Type:Id]` convention
+- **Serilog** with Seq and Grafana Loki support
+- **Request correlation ID** via `UseSerilogRequestLogging`
+
+### Infrastructure
+- Migrated Docker publishing from Docker Hub to **GHCR**
+- Added LocalStack for AWS sink integration tests (SQS, SNS, EventBridge)
+- Added Google Pub/Sub emulator for integration tests
+- Added Redis to Docker Compose for local development
+- **89 unit tests + 15 integration tests**
+
+### Improvements
+- `SinkHelper` — shared utilities for env var loading and JSON serialization
+- `SinkFactory` and `ValidatorFactory` — centralized instantiation with `TypeName` constants
+- `ConfigLoader` reads known validator types from `ValidatorFactory.KnownTypes`
+- Constant-time comparison on all token/signature validators
+- `LogHelper.MaskUri` — credentials masked in all connection URL logs
+- Configurable request body size limit via `HOOKPIPE_MAX_BODY_SIZE_MB`
+
 ## v0.1.0
 
 Initial release.
