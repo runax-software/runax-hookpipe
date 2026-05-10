@@ -18,8 +18,13 @@ public sealed class StdoutSink(ILogger<StdoutSink> logger) : ISink
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
     };
 
+    /// <summary>
+    /// The sink type identifier.
+    /// </summary>
+    public const string TypeName = "stdout";
+
     /// <inheritdoc />
-    public string Type => "stdout";
+    public string Type => TypeName;
 
     /// <inheritdoc />
     public Task ProduceAsync(MessageEnvelope message, CancellationToken cancellationToken = default)

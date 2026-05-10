@@ -34,8 +34,13 @@ public sealed class HttpRelaySink : ISink, IDisposable
         _sinkId = sinkId;
     }
 
+    /// <summary>
+    /// The sink type identifier.
+    /// </summary>
+    public const string TypeName = "http";
+
     /// <inheritdoc />
-    public string Type => "http";
+    public string Type => TypeName;
 
     /// <summary>
     /// Creates a new HTTP relay sink from the given config settings.

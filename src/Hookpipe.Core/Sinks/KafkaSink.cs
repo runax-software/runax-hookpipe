@@ -33,8 +33,13 @@ public sealed class KafkaSink : ISink, IDisposable
         _sinkId = sinkId;
     }
 
+    /// <summary>
+    /// The sink type identifier.
+    /// </summary>
+    public const string TypeName = "kafka";
+
     /// <inheritdoc />
-    public string Type => "kafka";
+    public string Type => TypeName;
 
     /// <summary>
     /// Creates a new Kafka sink from the given config settings.

@@ -44,8 +44,13 @@ public sealed class RabbitMqSink : ISink, IAsyncDisposable
         _sinkId = sinkId;
     }
 
+    /// <summary>
+    /// The sink type identifier.
+    /// </summary>
+    public const string TypeName = "rabbitmq";
+
     /// <inheritdoc />
-    public string Type => "rabbitmq";
+    public string Type => TypeName;
 
     /// <summary>
     /// Creates a new RabbitMQ sink from the given config settings.

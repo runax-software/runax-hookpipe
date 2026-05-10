@@ -33,8 +33,13 @@ public sealed class SqsSink : ISink, IDisposable
         _sinkId = sinkId;
     }
 
+    /// <summary>
+    /// The sink type identifier.
+    /// </summary>
+    public const string TypeName = "sqs";
+
     /// <inheritdoc />
-    public string Type => "sqs";
+    public string Type => TypeName;
 
     /// <summary>
     /// Creates a new SQS sink from the given config settings.

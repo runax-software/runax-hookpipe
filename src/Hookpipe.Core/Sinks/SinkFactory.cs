@@ -28,11 +28,11 @@ public static class SinkFactory
 
             sinks[sinkConfig.Id] = sinkConfig.Type switch
             {
-                "stdout" => new StdoutSink(loggerFactory.CreateLogger<StdoutSink>()),
-                "rabbitmq" => await RabbitMqSink.CreateAsync(sinkConfig, loggerFactory.CreateLogger<RabbitMqSink>()),
-                "kafka" => KafkaSink.Create(sinkConfig, loggerFactory.CreateLogger<KafkaSink>()),
-                "http" => HttpRelaySink.Create(sinkConfig, loggerFactory.CreateLogger<HttpRelaySink>()),
-                "sqs" => SqsSink.Create(sinkConfig, loggerFactory.CreateLogger<SqsSink>()),
+                StdoutSink.TypeName => new StdoutSink(loggerFactory.CreateLogger<StdoutSink>()),
+                RabbitMqSink.TypeName => await RabbitMqSink.CreateAsync(sinkConfig, loggerFactory.CreateLogger<RabbitMqSink>()),
+                KafkaSink.TypeName => KafkaSink.Create(sinkConfig, loggerFactory.CreateLogger<KafkaSink>()),
+                HttpRelaySink.TypeName => HttpRelaySink.Create(sinkConfig, loggerFactory.CreateLogger<HttpRelaySink>()),
+                SqsSink.TypeName => SqsSink.Create(sinkConfig, loggerFactory.CreateLogger<SqsSink>()),
                 _ => throw new InvalidOperationException($"Unknown sink type: '{sinkConfig.Type}'"),
             };
 
