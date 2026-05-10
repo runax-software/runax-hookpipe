@@ -8,12 +8,12 @@ public sealed class EndpointConfig
     /// <summary>
     /// Unique identifier for this endpoint (e.g. "github-push").
     /// </summary>
-    public required string Id { get; set; }
+    public required string Id { get; init; }
 
     /// <summary>
     /// URL path to listen on (e.g. "/github/push"). Supports path params like "/ingest/{source}".
     /// </summary>
-    public required string Path { get; set; }
+    public required string Path { get; init; }
 
     /// <summary>
     /// HTTP methods accepted by this endpoint (e.g. "POST", "PUT"). Defaults to POST only.
@@ -50,5 +50,5 @@ public sealed class EndpointConfig
     /// <summary>
     /// Controls what data from the request is included in the produced message.
     /// </summary>
-    public MessageConfig Message { get; set; } = new();
+    public MessageConfig Message { get; init; } = new();
 }
