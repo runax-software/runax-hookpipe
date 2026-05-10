@@ -15,29 +15,38 @@ External service (GitHub, Stripe, Coolify, etc.)
     → Hookpipe matches route from config
       → validates request (signature, bearer token)
         → wraps in message envelope
-          → produces to sink (RabbitMQ, stdout)
+          → produces to sink (RabbitMQ, Kafka, SQS, HTTP, stdout)
             → returns 202 Accepted
 ```
 
 ## Quick start
 
+### Docker
+
 ```bash
-# Clone and build
+docker run -p 8080:8080 \
+  -v ./config:/app/config \
+  -e RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672 \
+  runaxsoftware/hookpipe:latest
+```
+
+### From source
+
+```bash
 git clone https://github.com/runax-software/runax-hookpipe.git
 cd runax-hookpipe
-dotnet restore && dotnet build
-
-# Copy and edit env
 cp .env.example .env
 
-# Start RabbitMQ (optional)
+# Start RabbitMQ + Kafka (optional)
 docker compose up -d
 
-# Run
 dotnet run --project src/Hookpipe.API
+```
 
-# Test
-curl -X POST http://localhost:5000/test/webhook \
+### Test
+
+```bash
+curl -X POST http://localhost:8080/test/webhook \
   -H "Content-Type: application/json" \
   -d '{"hello":"world"}'
 ```
