@@ -48,7 +48,15 @@ public sealed class SnsSink : ISink, IDisposable
         logger.LogInformation("[Hookpipe.Sink:sns:{SinkId}] Configured for topic '{TopicArn}'", sinkConfig.Id,
             topicArn);
 
-        return new SnsSink(logger, new AmazonSimpleNotificationServiceClient(config), topicArn, sinkConfig.Id);
+        var client = !string.IsNullOrEmpty(serviceUrl)
+            ? new AmazonSimpleNotificationServiceClient(
+                new Amazon.Runtime.BasicAWSCredentials(
+                    Environment.GetEnvironmentVariable("AWS_ACCESS_KEY_ID") ?? "test",
+                    Environment.GetEnvironmentVariable("AWS_SECRET_ACCESS_KEY") ?? "test"),
+                config)
+            : new AmazonSimpleNotificationServiceClient(config);
+
+        return new SnsSink(logger, client, topicArn, sinkConfig.Id);
     }
 
 
