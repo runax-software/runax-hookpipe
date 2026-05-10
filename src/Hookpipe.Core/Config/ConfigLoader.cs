@@ -13,7 +13,7 @@ public static class ConfigLoader
         .IgnoreUnmatchedProperties()
         .Build();
 
-    private static readonly HashSet<string> KnownValidatorTypes = ["bearer", "hmac-sha256"];
+    private static HashSet<string> KnownValidatorTypes => Validation.ValidatorFactory.KnownTypes;
 
     /// <summary>
     /// Loads configuration from the specified YAML file path.

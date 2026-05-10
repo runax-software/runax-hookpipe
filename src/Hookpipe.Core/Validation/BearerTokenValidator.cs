@@ -16,8 +16,13 @@ public sealed class BearerTokenValidator(ILogger<BearerTokenValidator> logger) :
 {
     private static readonly Encoding Utf8 = Encoding.UTF8;
 
+    /// <summary>
+    /// The validator type identifier.
+    /// </summary>
+    public const string TypeName = "bearer";
+
     /// <inheritdoc />
-    public string Type => "bearer";
+    public string Type => TypeName;
 
     /// <inheritdoc />
     /// <remarks>

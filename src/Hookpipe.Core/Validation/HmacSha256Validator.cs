@@ -17,8 +17,13 @@ public sealed class HmacSha256Validator(ILogger<HmacSha256Validator> logger) : I
 {
     private static readonly Encoding Utf8 = Encoding.UTF8;
 
+    /// <summary>
+    /// The validator type identifier.
+    /// </summary>
+    public const string TypeName = "hmac-sha256";
+
     /// <inheritdoc />
-    public string Type => "hmac-sha256";
+    public string Type => TypeName;
 
     /// <inheritdoc />
     /// <remarks>
