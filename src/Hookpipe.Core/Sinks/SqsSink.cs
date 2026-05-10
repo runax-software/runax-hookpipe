@@ -62,7 +62,15 @@ public sealed class SqsSink : ISink, IDisposable
             "[Hookpipe.Sink:sqs:{SinkId}] Configured for queue '{QueueUrl}', region='{Region}'",
             sinkConfig.Id, Helpers.LogHelper.MaskUri(queueUrl), region ?? "default");
 
-        return new SqsSink(logger, new AmazonSQSClient(config), queueUrl, sinkConfig.Id);
+        var client = !string.IsNullOrEmpty(serviceUrl)
+            ? new AmazonSQSClient(
+                new Amazon.Runtime.BasicAWSCredentials(
+                    Environment.GetEnvironmentVariable("AWS_ACCESS_KEY_ID") ?? "test",
+                    Environment.GetEnvironmentVariable("AWS_SECRET_ACCESS_KEY") ?? "test"),
+                config)
+            : new AmazonSQSClient(config);
+
+        return new SqsSink(logger, client, queueUrl, sinkConfig.Id);
     }
 
     /// <inheritdoc />

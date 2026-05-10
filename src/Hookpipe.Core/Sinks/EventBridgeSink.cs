@@ -72,8 +72,15 @@ public sealed class EventBridgeSink : ISink, IDisposable
             "[Hookpipe.Sink:eventbridge:{SinkId}] Configured for bus '{EventBus}', source='{Source}', detail_type='{DetailType}'",
             sinkConfig.Id, eventBus, source, detailType);
 
-        return new EventBridgeSink(logger, new AmazonEventBridgeClient(config), eventBus, source, detailType,
-            sinkConfig.Id);
+        var client = !string.IsNullOrEmpty(serviceUrl)
+            ? new AmazonEventBridgeClient(
+                new Amazon.Runtime.BasicAWSCredentials(
+                    Environment.GetEnvironmentVariable("AWS_ACCESS_KEY_ID") ?? "test",
+                    Environment.GetEnvironmentVariable("AWS_SECRET_ACCESS_KEY") ?? "test"),
+                config)
+            : new AmazonEventBridgeClient(config);
+
+        return new EventBridgeSink(logger, client, eventBus, source, detailType, sinkConfig.Id);
     }
 
     /// <inheritdoc />
