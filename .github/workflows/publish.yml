@@ -10,6 +10,7 @@ env:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    environment: docker-hub
 
     steps:
       - uses: actions/checkout@v6
