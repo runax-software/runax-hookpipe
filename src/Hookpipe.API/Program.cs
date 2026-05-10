@@ -7,6 +7,7 @@ using Hookpipe.Core.Metrics;
 using Prometheus;
 using Serilog;
 using Serilog.Sinks.Grafana.Loki;
+using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -50,6 +51,22 @@ var retryPipelines = SinkFactory.CreateRetryPipelines(configProvider.Current, lo
 var validators = ValidatorFactory.CreateAll(loggerFactory);
 var envelopeBuilder = new EnvelopeBuilder(loggerFactory.CreateLogger<EnvelopeBuilder>());
 
+// Build rate limiters for endpoints that have rate_limit configured
+var rateLimiters = new Dictionary<string, RateLimiter>();
+foreach (var ep in configProvider.Current.Endpoints)
+{
+    if (ep.RateLimit is null) continue;
+    rateLimiters[ep.Id] = new FixedWindowRateLimiter(new FixedWindowRateLimiterOptions
+    {
+        PermitLimit = ep.RateLimit.Requests,
+        Window = TimeSpan.FromSeconds(ep.RateLimit.WindowSeconds),
+        QueueLimit = 0,
+    });
+    startupLogger.LogInformation(
+        "[Hookpipe.Endpoint:{Id}] Rate limit: {Requests} requests per {Window}s",
+        ep.Id, ep.RateLimit.Requests, ep.RateLimit.WindowSeconds);
+}
+
 // Routes are registered once at startup — paths can't change at runtime.
 // Validation, sink routing, and message config are read from live config on each request.
 foreach (var endpoint in configProvider.Current.Endpoints)
@@ -91,6 +108,19 @@ foreach (var endpoint in configProvider.Current.Endpoints)
             HookpipeMetrics.RequestsTotal.WithLabels(endpointId, context.Request.Method, "405").Inc();
             context.Response.StatusCode = 405;
             return;
+        }
+
+        if (rateLimiters.TryGetValue(endpointId, out var limiter))
+        {
+            using var lease = await limiter.AcquireAsync(1, context.RequestAborted);
+            if (!lease.IsAcquired)
+            {
+                logger.LogDebug("[Hookpipe.Endpoint:{EndpointId}] Rate limit exceeded", endpointId);
+                HookpipeMetrics.RequestsTotal.WithLabels(endpointId, context.Request.Method, "429").Inc();
+                context.Response.StatusCode = 429;
+                await context.Response.WriteAsJsonAsync(new { error = "rate_limit_exceeded", endpoint_id = endpointId });
+                return;
+            }
         }
 
         if (liveEndpoint.Validation is not null)
@@ -179,6 +209,12 @@ app.Lifetime.ApplicationStopping.Register(() =>
 
     fileWatcher.Dispose();
     shutdownLogger.LogInformation("[Hookpipe.Shutdown] Stopped config file watcher");
+
+    foreach (var (id, rl) in rateLimiters)
+    {
+        rl.Dispose();
+        shutdownLogger.LogDebug("[Hookpipe.Shutdown] Disposed rate limiter for '{EndpointId}'", id);
+    }
 
     foreach (var (id, sink) in sinks)
     {

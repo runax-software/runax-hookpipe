@@ -51,4 +51,9 @@ public sealed class EndpointConfig
     /// Controls what data from the request is included in the produced message.
     /// </summary>
     public MessageConfig Message { get; init; } = new();
+
+    /// <summary>
+    /// Optional rate limit for this endpoint. If null, no rate limiting is applied.
+    /// </summary>
+    public RateLimitConfig? RateLimit { get; init; }
 }

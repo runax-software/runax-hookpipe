@@ -9,15 +9,13 @@
 - [ ] NATS sink
 
 ### Validators
-- [ ] Stripe signature validator (`stripe-v1`)
-- [ ] IP allowlist validator
-- [ ] API key header validator (custom header + key)
+- [x] Stripe signature validator (`stripe-v1`)
+- [x] IP allowlist validator
+- [x] API key header validator (custom header + key)
 
 ### Features
-- [ ] Retry policy on sink failures (exponential backoff, dead-letter config)
-- [ ] Request/response transformation (modify body before producing)
-- [ ] Rate limiting per endpoint
-- [ ] Webhook replay (persist failed messages, retry later)
+- [x] Retry policy on sink failures (exponential backoff, dead-letter config)
+- [x] Rate limiting per endpoint
 
 ## v0.3.0
 
@@ -40,6 +38,7 @@
 
 ### Features
 - [ ] Conditional routing (route to different sinks based on body/header content)
+- [ ] Request/response transformation (modify body before producing)
 - [ ] Request deduplication (idempotency key from header or body field)
 - [ ] Delayed/scheduled delivery (produce after N seconds)
 - [ ] Config schema validation (JSON Schema for YAML)
@@ -59,6 +58,9 @@
 - [ ] Parallel sink fan-out (produce to multiple sinks concurrently)
 - [ ] Connection pooling for HTTP relay sink
 - [ ] Request buffering (accept 202 immediately, produce async in background)
+
+### Resilience
+- [ ] Webhook replay / dead-letter store (persist failed messages, replay later via Redis/SQLite/Postgres)
 
 ## v1.0.0
 
