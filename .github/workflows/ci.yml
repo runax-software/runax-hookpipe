@@ -67,11 +67,11 @@ jobs:
           --health-retries 5
 
       localstack:
-        image: localstack/localstack:3.0
+        image: localstack/localstack:2.3
         ports:
           - 4566:4566
         env:
-          SERVICES: sqs
+          SERVICES: sqs,sns,events
 
     steps:
       - uses: actions/checkout@v6

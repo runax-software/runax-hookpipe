@@ -31,11 +31,11 @@ services:
       - "6379:6379"
 
   localstack:
-    image: localstack/localstack:3.0
+    image: localstack/localstack:2.3
     ports:
       - "4566:4566"
     environment:
-      SERVICES: sqs
+      SERVICES: sqs,sns,events
 
   pubsub-emulator:
     image: gcr.io/google.com/cloudsdktool/google-cloud-cli:emulators

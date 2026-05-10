@@ -3,10 +3,10 @@
 ## v0.2.0
 
 ### Sinks
-- [ ] Redis Streams sink
-- [ ] Azure Service Bus sink
-- [ ] Google Pub/Sub sink
-- [ ] NATS sink
+- [x] Redis Streams sink
+- [x] Google Pub/Sub sink
+- [ ] Amazon SNS sink
+- [ ] Amazon EventBridge sink
 
 ### Validators
 - [x] Stripe signature validator (`stripe-v1`)
@@ -44,8 +44,8 @@
 - [ ] Config schema validation (JSON Schema for YAML)
 
 ### Sinks
-- [ ] Amazon SNS sink
-- [ ] Amazon EventBridge sink
+- [ ] Azure Service Bus sink
+- [ ] NATS sink
 - [ ] Webhook batching (buffer N messages, flush as array)
 
 ## v0.5.0

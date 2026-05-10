@@ -40,6 +40,8 @@ public static class SinkFactory
                     loggerFactory.CreateLogger<RedisStreamSink>()),
                 GooglePubSubSink.TypeName => await GooglePubSubSink.CreateAsync(sinkConfig,
                     loggerFactory.CreateLogger<GooglePubSubSink>()),
+                SnsSink.TypeName => SnsSink.Create(sinkConfig, loggerFactory.CreateLogger<SnsSink>()),
+                EventBridgeSink.TypeName => EventBridgeSink.Create(sinkConfig, loggerFactory.CreateLogger<EventBridgeSink>()),
                 _ => throw new InvalidOperationException($"Unknown sink type: '{sinkConfig.Type}'"),
             };
 

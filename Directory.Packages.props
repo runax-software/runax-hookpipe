@@ -17,6 +17,8 @@
     <!-- Resilience -->
     <PackageVersion Include="Polly.Core" Version="8.6.6" />
     <!-- Sinks -->
+    <PackageVersion Include="AWSSDK.EventBridge" Version="4.0.5.14" />
+    <PackageVersion Include="AWSSDK.SimpleNotificationService" Version="4.0.2.7" />
     <PackageVersion Include="AWSSDK.SQS" Version="4.0.2.14" />
     <PackageVersion Include="Google.Cloud.PubSub.V1" Version="3.30.0" />
     <PackageVersion Include="Confluent.Kafka" Version="2.13.0" />
