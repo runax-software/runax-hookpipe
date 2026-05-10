@@ -47,9 +47,15 @@ public sealed class SqsSink : ISink, IDisposable
     {
         var queueUrl = SinkHelper.RequireEnvVar(sinkConfig, "queue_url_env", "SQS_QUEUE_URL");
         var region = SinkHelper.OptionalEnvVar(sinkConfig, "region_env", "AWS_REGION");
+        var serviceUrl = SinkHelper.OptionalEnvVar(sinkConfig, "service_url_env", "AWS_SERVICE_URL");
 
         var config = new AmazonSQSConfig();
-        if (!string.IsNullOrEmpty(region))
+        if (!string.IsNullOrEmpty(serviceUrl))
+        {
+            config.ServiceURL = serviceUrl;
+            config.AuthenticationRegion = region ?? "us-east-1";
+        }
+        else if (!string.IsNullOrEmpty(region))
             config.RegionEndpoint = Amazon.RegionEndpoint.GetBySystemName(region);
 
         logger.LogInformation(

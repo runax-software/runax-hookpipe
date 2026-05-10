@@ -66,6 +66,13 @@ jobs:
           --health-timeout 5s
           --health-retries 5
 
+      localstack:
+        image: localstack/localstack:latest
+        ports:
+          - 4566:4566
+        env:
+          SERVICES: sqs
+
     steps:
       - uses: actions/checkout@v6
 
@@ -88,4 +95,8 @@ jobs:
           RABBITMQ_URL: amqp://guest:guest@localhost:5672
           KAFKA_BROKERS: localhost:9092
           REDIS_CONNECTION: localhost:6379
+          AWS_SERVICE_URL: http://localhost:4566
+          AWS_ACCESS_KEY_ID: test
+          AWS_SECRET_ACCESS_KEY: test
+          AWS_REGION: us-east-1
         run: dotnet test --no-build --filter "Category=Integration" --verbosity normal

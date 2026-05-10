@@ -29,3 +29,10 @@ services:
     image: redis:7-alpine
     ports:
       - "6379:6379"
+
+  localstack:
+    image: localstack/localstack:latest
+    ports:
+      - "4566:4566"
+    environment:
+      SERVICES: sqs
