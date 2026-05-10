@@ -104,10 +104,13 @@ See [Sinks](docs/sinks.md) for details.
 
 ## Validators
 
-| Validator    | Type          | Use case                 |
-| ------------ | ------------- | ------------------------ |
-| Bearer token | `bearer`      | Coolify, custom webhooks |
-| HMAC-SHA256  | `hmac-sha256` | GitHub, Shopify          |
+| Validator      | Type            | Use case                        |
+| -------------- | --------------- | ------------------------------- |
+| Bearer token   | `bearer`        | Coolify, custom webhooks        |
+| HMAC-SHA256    | `hmac-sha256`   | GitHub, Shopify                 |
+| Stripe         | `stripe-v1`     | Stripe webhooks                 |
+| API key        | `api-key`       | Custom header + key             |
+| IP allowlist   | `ip-allowlist`  | Restrict by IP/CIDR             |
 
 See [Validators](docs/validators.md) for details.
 

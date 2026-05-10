@@ -162,6 +162,66 @@ validation:
 
 Handles signatures with or without prefix (e.g. `sha256=<hex>`).
 
+### Stripe signature
+
+Validates using Stripe's v1 signing scheme with timestamp freshness check.
+
+```yaml
+validation:
+    signature:
+        header: Stripe-Signature
+        secret_env: STRIPE_WEBHOOK_SECRET
+        algorithm: stripe-v1
+```
+
+### API key
+
+Compares a custom header value against an env var.
+
+```yaml
+validation:
+    auth:
+        type: api-key
+        header: X-API-Key
+        token_env: MY_API_KEY
+```
+
+### IP allowlist
+
+Restricts requests to specific IPs or CIDRs.
+
+```yaml
+validation:
+    auth:
+        type: ip-allowlist
+        token_env: ALLOWED_IPS # e.g. "192.168.1.0/24,10.0.0.1"
+```
+
+## Retry policy
+
+Optional per-sink retry with exponential backoff and jitter. If a sink produce fails, Hookpipe retries before returning an error.
+
+```yaml
+sinks:
+    - id: rabbitmq-main
+      type: rabbitmq
+      settings:
+          url_env: RABBITMQ_URL
+          exchange: webhooks
+      retry:
+          max_retries: 3
+          delay_seconds: 2
+          backoff_multiplier: 2
+```
+
+| Key                  | Description                                | Default |
+| -------------------- | ------------------------------------------ | ------- |
+| `max_retries`        | Maximum retry attempts                     | `3`     |
+| `delay_seconds`      | Initial delay before first retry           | `2`     |
+| `backoff_multiplier` | Exponential multiplier (e.g. 2s, 4s, 8s)  | `2`     |
+
+If no `retry` block is defined, the sink produces once with no retries (current default behavior). Each retry attempt is logged as a warning with the attempt number and exception message.
+
 ## Environment variables
 
 | Variable                                  | Description                                         | Default                |

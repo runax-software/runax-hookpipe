@@ -46,6 +46,7 @@ startupLogger.LogInformation(
     configProvider.Current.Endpoints.Count, configProvider.Current.Sinks.Count, configPath);
 
 var sinks = await SinkFactory.CreateAllAsync(configProvider.Current, loggerFactory);
+var retryPipelines = SinkFactory.CreateRetryPipelines(configProvider.Current, loggerFactory);
 var validators = ValidatorFactory.CreateAll(loggerFactory);
 var envelopeBuilder = new EnvelopeBuilder(loggerFactory.CreateLogger<EnvelopeBuilder>());
 
@@ -142,8 +143,16 @@ foreach (var endpoint in configProvider.Current.Endpoints)
                     continue;
                 }
 
-                await sink.ProduceAsync(envelope, context.RequestAborted);
-                HookpipeMetrics.MessagesProducedTotal.WithLabels(endpointId, sinkId).Inc();
+                if (retryPipelines.TryGetValue(sinkId, out var retryPipeline))
+                {
+                    await retryPipeline.ExecuteAsync(
+                        static (state, cancellationToken) =>
+                            new ValueTask(state.sink.ProduceAsync(state.envelope, cancellationToken)),
+                        (sink, envelope),
+                        context.RequestAborted);
+                }
+                else await sink.ProduceAsync(envelope, context.RequestAborted);
+
                 logger.LogDebug("[Hookpipe.Endpoint:{EndpointId}] Message '{MessageId}' produced to sink '{SinkId}'",
                     endpointId, envelope.Id, sinkId);
             }

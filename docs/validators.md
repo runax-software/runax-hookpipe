@@ -49,6 +49,75 @@ validation:
 
 **Compatible with:** GitHub, Shopify, and any provider using HMAC-SHA256 signatures.
 
+### Stripe signature
+
+Validates Stripe webhook signatures using Stripe's v1 signing scheme. Verifies both the HMAC-SHA256 signature and timestamp freshness (5-minute tolerance).
+
+**Type:** `stripe-v1`
+
+```yaml
+validation:
+    signature:
+        header: Stripe-Signature
+        secret_env: STRIPE_WEBHOOK_SECRET
+        algorithm: stripe-v1
+```
+
+**Behavior:**
+
+- Parses the `t=timestamp,v1=signature` header format
+- Rejects requests with timestamps older than 5 minutes (replay protection)
+- Computes HMAC-SHA256 of `timestamp.body` using the secret
+- Uses constant-time comparison to prevent timing attacks
+- Returns 401 if the signature doesn't match or timestamp is stale
+
+### API key
+
+Validates a custom header value against a secret stored in an environment variable. Supports any header name.
+
+**Type:** `api-key`
+
+```yaml
+validation:
+    auth:
+        type: api-key
+        header: X-API-Key
+        token_env: MY_API_KEY
+```
+
+**Behavior:**
+
+- Reads the value from the configured `header` name
+- Compares against the env var specified by `token_env`
+- Uses constant-time comparison to prevent timing attacks
+- Returns 401 if the header is missing or the value doesn't match
+
+### IP allowlist
+
+Validates the remote IP address against a list of allowed IPs or CIDRs.
+
+**Type:** `ip-allowlist`
+
+```yaml
+validation:
+    auth:
+        type: ip-allowlist
+        token_env: ALLOWED_IPS
+```
+
+Set the env var to a comma-separated list:
+
+```bash
+ALLOWED_IPS=192.168.1.0/24,10.0.0.1,140.82.112.0/20
+```
+
+**Behavior:**
+
+- Reads the allowlist from the env var as comma-separated IPs/CIDRs
+- Supports both individual IPs and CIDR notation
+- Normalizes IPv6-mapped IPv4 addresses
+- Returns 401 if the remote IP is not in the allowlist
+
 ## Creating a custom validator
 
 1. Create a class in `src/Hookpipe.Core/Validation/` implementing `IValidator`

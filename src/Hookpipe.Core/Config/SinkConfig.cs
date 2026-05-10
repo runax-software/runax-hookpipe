@@ -20,4 +20,9 @@ public sealed class SinkConfig
     /// Values referencing environment variables should use the "_env" suffix convention.
     /// </summary>
     public Dictionary<string, string> Settings { get; init; } = [];
+
+    /// <summary>
+    /// Optional retry policy for this sink. If null, no retries are performed.
+    /// </summary>
+    public RetryConfig? Retry { get; init; }
 }
