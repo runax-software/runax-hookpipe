@@ -1,5 +1,10 @@
 # Hookpipe
 
+[![Docker Hub](https://img.shields.io/docker/v/runaxsoftware/hookpipe?label=Docker%20Hub&sort=semver)](https://hub.docker.com/r/runaxsoftware/hookpipe)
+[![Docker Pulls](https://img.shields.io/docker/pulls/runaxsoftware/hookpipe)](https://hub.docker.com/r/runaxsoftware/hookpipe)
+[![CI](https://github.com/runax-software/runax-hookpipe/actions/workflows/ci.yml/badge.svg)](https://github.com/runax-software/runax-hookpipe/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 Config-driven webhook gateway. Receive HTTP webhooks, validate them, and route messages to queues.
 
 ## How it works
