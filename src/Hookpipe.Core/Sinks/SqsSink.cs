@@ -1,5 +1,4 @@
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using Amazon.SQS;
 using Amazon.SQS.Model;
 using Hookpipe.Core.Config;
@@ -14,11 +13,10 @@ namespace Hookpipe.Core.Sinks;
 /// </summary>
 public sealed class SqsSink : ISink, IDisposable
 {
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-    };
+    /// <summary>
+    /// The sink type identifier.
+    /// </summary>
+    public const string TypeName = "sqs";
 
     private readonly ILogger<SqsSink> _logger;
     private readonly IAmazonSQS _client;
@@ -32,11 +30,6 @@ public sealed class SqsSink : ISink, IDisposable
         _queueUrl = queueUrl;
         _sinkId = sinkId;
     }
-
-    /// <summary>
-    /// The sink type identifier.
-    /// </summary>
-    public const string TypeName = "sqs";
 
     /// <inheritdoc />
     public string Type => TypeName;
@@ -52,13 +45,8 @@ public sealed class SqsSink : ISink, IDisposable
     /// </exception>
     public static SqsSink Create(SinkConfig sinkConfig, ILogger<SqsSink> logger)
     {
-        var queueUrlEnv = sinkConfig.Settings.GetValueOrDefault("queue_url_env", "SQS_QUEUE_URL");
-        var queueUrl = Environment.GetEnvironmentVariable(queueUrlEnv)
-                       ?? throw new InvalidOperationException(
-                           $"Sink '{sinkConfig.Id}': env var '{queueUrlEnv}' is not set");
-
-        var regionEnv = sinkConfig.Settings.GetValueOrDefault("region_env", "AWS_REGION");
-        var region = Environment.GetEnvironmentVariable(regionEnv);
+        var queueUrl = SinkHelper.RequireEnvVar(sinkConfig, "queue_url_env", "SQS_QUEUE_URL");
+        var region = SinkHelper.OptionalEnvVar(sinkConfig, "region_env", "AWS_REGION");
 
         var config = new AmazonSQSConfig();
         if (!string.IsNullOrEmpty(region))
@@ -74,12 +62,10 @@ public sealed class SqsSink : ISink, IDisposable
     /// <inheritdoc />
     public async Task ProduceAsync(MessageEnvelope message, CancellationToken cancellationToken = default)
     {
-        var json = JsonSerializer.Serialize(message, JsonOptions);
-
         var request = new SendMessageRequest
         {
             QueueUrl = _queueUrl,
-            MessageBody = json,
+            MessageBody = JsonSerializer.Serialize(message, SinkHelper.JsonOptions),
             MessageAttributes = new Dictionary<string, MessageAttributeValue>
             {
                 ["hookpipe.message.id"] = new()

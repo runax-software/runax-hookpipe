@@ -1,5 +1,4 @@
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using Confluent.Kafka;
 using Hookpipe.Core.Config;
 using Hookpipe.Core.Models;
@@ -14,11 +13,10 @@ namespace Hookpipe.Core.Sinks;
 /// </summary>
 public sealed class KafkaSink : ISink, IDisposable
 {
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-    };
+    /// <summary>
+    /// The sink type identifier.
+    /// </summary>
+    public const string TypeName = "kafka";
 
     private readonly ILogger<KafkaSink> _logger;
     private readonly IProducer<string, string> _producer;
@@ -32,11 +30,6 @@ public sealed class KafkaSink : ISink, IDisposable
         _topic = topic;
         _sinkId = sinkId;
     }
-
-    /// <summary>
-    /// The sink type identifier.
-    /// </summary>
-    public const string TypeName = "kafka";
 
     /// <inheritdoc />
     public string Type => TypeName;
@@ -52,11 +45,7 @@ public sealed class KafkaSink : ISink, IDisposable
     /// </exception>
     public static KafkaSink Create(SinkConfig sinkConfig, ILogger<KafkaSink> logger)
     {
-        var brokersEnv = sinkConfig.Settings.GetValueOrDefault("brokers_env", "KAFKA_BROKERS");
-        var brokers = Environment.GetEnvironmentVariable(brokersEnv)
-                      ?? throw new InvalidOperationException(
-                          $"Sink '{sinkConfig.Id}': env var '{brokersEnv}' is not set");
-
+        var brokers = SinkHelper.RequireEnvVar(sinkConfig, "brokers_env", "KAFKA_BROKERS");
         var topic = sinkConfig.Settings.GetValueOrDefault("topic", "")
             is { Length: > 0 } t
             ? t
@@ -80,12 +69,10 @@ public sealed class KafkaSink : ISink, IDisposable
     /// <inheritdoc />
     public async Task ProduceAsync(MessageEnvelope message, CancellationToken cancellationToken = default)
     {
-        var json = JsonSerializer.Serialize(message, JsonOptions);
-
         var kafkaMessage = new Message<string, string>
         {
             Key = message.EndpointId,
-            Value = json,
+            Value = JsonSerializer.Serialize(message, SinkHelper.JsonOptions),
             Headers = new Headers
             {
                 { "hookpipe.message.id", System.Text.Encoding.UTF8.GetBytes(message.Id) },

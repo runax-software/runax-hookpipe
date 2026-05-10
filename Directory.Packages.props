@@ -4,26 +4,22 @@
   </PropertyGroup>
   <ItemGroup>
     <!-- Config -->
+    <PackageVersion Include="StackExchange.Redis" Version="3.0.2-preview" />
     <PackageVersion Include="YamlDotNet" Version="17.0.1" />
-
     <!-- Logging -->
     <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.3" />
     <PackageVersion Include="Serilog.AspNetCore" Version="10.0.0" />
     <PackageVersion Include="Serilog.Sinks.Seq" Version="9.0.0" />
     <PackageVersion Include="Serilog.Sinks.Grafana.Loki" Version="8.3.2" />
-
     <!-- Metrics -->
     <PackageVersion Include="prometheus-net" Version="8.2.1" />
     <PackageVersion Include="prometheus-net.AspNetCore" Version="8.2.1" />
-
     <!-- Resilience -->
     <PackageVersion Include="Polly.Core" Version="8.6.6" />
-
     <!-- Sinks -->
     <PackageVersion Include="AWSSDK.SQS" Version="4.0.2.14" />
     <PackageVersion Include="Confluent.Kafka" Version="2.13.0" />
     <PackageVersion Include="RabbitMQ.Client" Version="7.2.1" />
-
     <!-- Testing -->
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.13.0" />
     <PackageVersion Include="xunit" Version="2.9.3" />

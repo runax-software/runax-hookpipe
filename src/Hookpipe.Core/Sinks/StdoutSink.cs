@@ -29,9 +29,9 @@ public sealed class StdoutSink(ILogger<StdoutSink> logger) : ISink
     /// <inheritdoc />
     public Task ProduceAsync(MessageEnvelope message, CancellationToken cancellationToken = default)
     {
-        var json = JsonSerializer.Serialize(message, JsonOptions);
         logger.LogInformation("[Hookpipe.Sink:stdout] Message on endpoint '{EndpointId}':\n{Json}",
-            message.EndpointId, json);
+            message.EndpointId, JsonSerializer.Serialize(message, JsonOptions));
+
         return Task.CompletedTask;
     }
 }

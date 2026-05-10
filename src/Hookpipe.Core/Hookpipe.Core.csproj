@@ -9,6 +9,7 @@
     <PackageReference Include="Confluent.Kafka" />
     <PackageReference Include="Polly.Core" />
     <PackageReference Include="prometheus-net" />
+    <PackageReference Include="StackExchange.Redis" />
     <PackageReference Include="YamlDotNet" />
     <PackageReference Include="RabbitMQ.Client" />
   </ItemGroup>

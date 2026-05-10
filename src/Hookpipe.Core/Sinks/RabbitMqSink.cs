@@ -1,6 +1,5 @@
 using System.Text;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using Hookpipe.Core.Config;
 using Hookpipe.Core.Models;
 using Microsoft.Extensions.Logging;
@@ -15,11 +14,10 @@ namespace Hookpipe.Core.Sinks;
 /// </summary>
 public sealed class RabbitMqSink : ISink, IAsyncDisposable
 {
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-    };
+    /// <summary>
+    /// The sink type identifier.
+    /// </summary>
+    public const string TypeName = "rabbitmq";
 
     private readonly ILogger<RabbitMqSink> _logger;
     private readonly string _exchange;
@@ -44,11 +42,6 @@ public sealed class RabbitMqSink : ISink, IAsyncDisposable
         _sinkId = sinkId;
     }
 
-    /// <summary>
-    /// The sink type identifier.
-    /// </summary>
-    public const string TypeName = "rabbitmq";
-
     /// <inheritdoc />
     public string Type => TypeName;
 
@@ -61,11 +54,7 @@ public sealed class RabbitMqSink : ISink, IAsyncDisposable
     /// <exception cref="InvalidOperationException">Thrown when the URL env var is not set.</exception>
     public static async Task<RabbitMqSink> CreateAsync(SinkConfig sinkConfig, ILogger<RabbitMqSink> logger)
     {
-        var urlEnv = sinkConfig.Settings.GetValueOrDefault("url_env", "RABBITMQ_URL");
-        var url = Environment.GetEnvironmentVariable(urlEnv)
-                  ?? throw new InvalidOperationException(
-                      $"Sink '{sinkConfig.Id}': env var '{urlEnv}' is not set");
-
+        var url = SinkHelper.RequireEnvVar(sinkConfig, "url_env", "RABBITMQ_URL");
         var exchange = sinkConfig.Settings.GetValueOrDefault("exchange", "");
         var routingKey = sinkConfig.Settings.GetValueOrDefault("routing_key", "");
 
@@ -94,7 +83,7 @@ public sealed class RabbitMqSink : ISink, IAsyncDisposable
     /// <inheritdoc />
     public async Task ProduceAsync(MessageEnvelope message, CancellationToken cancellationToken = default)
     {
-        var json = JsonSerializer.Serialize(message, JsonOptions);
+        var json = JsonSerializer.Serialize(message, SinkHelper.JsonOptions);
         var body = Encoding.UTF8.GetBytes(json);
 
         var properties = new BasicProperties

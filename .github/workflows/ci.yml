@@ -56,6 +56,16 @@ jobs:
           KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
           KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
 
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - uses: actions/checkout@v6
 
@@ -77,4 +87,5 @@ jobs:
         env:
           RABBITMQ_URL: amqp://guest:guest@localhost:5672
           KAFKA_BROKERS: localhost:9092
+          REDIS_CONNECTION: localhost:6379
         run: dotnet test --no-build --filter "Category=Integration" --verbosity normal

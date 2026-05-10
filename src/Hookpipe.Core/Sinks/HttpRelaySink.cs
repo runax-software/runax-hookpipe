@@ -1,6 +1,5 @@
 using System.Text;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using Hookpipe.Core.Config;
 using Hookpipe.Core.Helpers;
 using Hookpipe.Core.Models;
@@ -15,11 +14,10 @@ namespace Hookpipe.Core.Sinks;
 /// </summary>
 public sealed class HttpRelaySink : ISink, IDisposable
 {
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-    };
+    /// <summary>
+    /// The sink type identifier.
+    /// </summary>
+    public const string TypeName = "http";
 
     private readonly ILogger<HttpRelaySink> _logger;
     private readonly HttpClient _httpClient;
@@ -34,11 +32,6 @@ public sealed class HttpRelaySink : ISink, IDisposable
         _sinkId = sinkId;
     }
 
-    /// <summary>
-    /// The sink type identifier.
-    /// </summary>
-    public const string TypeName = "http";
-
     /// <inheritdoc />
     public string Type => TypeName;
 
@@ -51,11 +44,7 @@ public sealed class HttpRelaySink : ISink, IDisposable
     /// <exception cref="InvalidOperationException">Thrown when the URL env var is not set.</exception>
     public static HttpRelaySink Create(SinkConfig sinkConfig, ILogger<HttpRelaySink> logger)
     {
-        var urlEnv = sinkConfig.Settings.GetValueOrDefault("url_env", "HTTP_RELAY_URL");
-        var url = Environment.GetEnvironmentVariable(urlEnv)
-                  ?? throw new InvalidOperationException(
-                      $"Sink '{sinkConfig.Id}': env var '{urlEnv}' is not set");
-
+        var url = SinkHelper.RequireEnvVar(sinkConfig, "url_env", "HTTP_RELAY_URL");
         var timeoutSeconds = int.TryParse(
             sinkConfig.Settings.GetValueOrDefault("timeout_seconds", "30"), out var t)
             ? t
@@ -73,8 +62,8 @@ public sealed class HttpRelaySink : ISink, IDisposable
     /// <inheritdoc />
     public async Task ProduceAsync(MessageEnvelope message, CancellationToken cancellationToken = default)
     {
-        var json = JsonSerializer.Serialize(message, JsonOptions);
-        using var content = new StringContent(json, Encoding.UTF8, "application/json");
+        using var content = new StringContent(JsonSerializer.Serialize(message, SinkHelper.JsonOptions), Encoding.UTF8,
+            "application/json");
 
         var response = await _httpClient.PostAsync(_url, content, cancellationToken);
 

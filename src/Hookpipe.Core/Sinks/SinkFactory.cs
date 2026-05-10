@@ -36,6 +36,8 @@ public static class SinkFactory
                 KafkaSink.TypeName => KafkaSink.Create(sinkConfig, loggerFactory.CreateLogger<KafkaSink>()),
                 HttpRelaySink.TypeName => HttpRelaySink.Create(sinkConfig, loggerFactory.CreateLogger<HttpRelaySink>()),
                 SqsSink.TypeName => SqsSink.Create(sinkConfig, loggerFactory.CreateLogger<SqsSink>()),
+                RedisStreamSink.TypeName => RedisStreamSink.Create(sinkConfig,
+                    loggerFactory.CreateLogger<RedisStreamSink>()),
                 _ => throw new InvalidOperationException($"Unknown sink type: '{sinkConfig.Type}'"),
             };
 
