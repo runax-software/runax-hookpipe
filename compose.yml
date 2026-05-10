@@ -31,8 +31,14 @@ services:
       - "6379:6379"
 
   localstack:
-    image: localstack/localstack:latest
+    image: localstack/localstack:3.0
     ports:
       - "4566:4566"
     environment:
       SERVICES: sqs
+
+  pubsub-emulator:
+    image: gcr.io/google.com/cloudsdktool/google-cloud-cli:emulators
+    command: gcloud beta emulators pubsub start --host-port=0.0.0.0:8085
+    ports:
+      - "8085:8085"

@@ -67,7 +67,7 @@ jobs:
           --health-retries 5
 
       localstack:
-        image: localstack/localstack:latest
+        image: localstack/localstack:3.0
         ports:
           - 4566:4566
         env:
@@ -78,6 +78,20 @@ jobs:
 
       - name: Setup and build
         uses: ./.github/actions/setup-dotnet-build
+
+      - name: Start Pub/Sub emulator
+        run: |
+          docker run -d --name pubsub-emulator -p 8085:8085 \
+            gcr.io/google.com/cloudsdktool/google-cloud-cli:emulators \
+            gcloud beta emulators pubsub start --host-port=0.0.0.0:8085
+          for i in $(seq 1 30); do
+            if curl -s http://localhost:8085 >/dev/null 2>&1; then
+              echo "Pub/Sub emulator is ready"
+              break
+            fi
+            echo "Waiting for Pub/Sub emulator... ($i/30)"
+            sleep 2
+          done
 
       - name: Wait for Kafka
         run: |
@@ -99,4 +113,6 @@ jobs:
           AWS_ACCESS_KEY_ID: test
           AWS_SECRET_ACCESS_KEY: test
           AWS_REGION: us-east-1
+          PUBSUB_EMULATOR_HOST: localhost:8085
+          GOOGLE_CLOUD_PROJECT: test-project
         run: dotnet test --no-build --filter "Category=Integration" --verbosity normal
