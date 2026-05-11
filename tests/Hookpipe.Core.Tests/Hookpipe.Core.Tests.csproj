@@ -2,6 +2,11 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Hookpipe.Core\Hookpipe.Core.csproj" />
+    <ProjectReference Include="..\..\src\Hookpipe.API\Hookpipe.API.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
   </ItemGroup>
 
 </Project>

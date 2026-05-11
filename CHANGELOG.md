@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.2.1
+
+### Fixed
+- Record `hookpipe_messages_produced_total` after successful sink publishes.
+- Record `hookpipe_sink_errors_total` when configured sink publishes fail.
+
 ## v0.2.0
 
 ### New sinks

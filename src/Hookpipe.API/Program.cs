@@ -173,18 +173,29 @@ foreach (var endpoint in configProvider.Current.Endpoints)
                     continue;
                 }
 
-                if (retryPipelines.TryGetValue(sinkId, out var retryPipeline))
+                try
                 {
-                    await retryPipeline.ExecuteAsync(
-                        static (state, cancellationToken) =>
-                            new ValueTask(state.sink.ProduceAsync(state.envelope, cancellationToken)),
-                        (sink, envelope),
-                        context.RequestAborted);
+                    if (retryPipelines.TryGetValue(sinkId, out var retryPipeline))
+                    {
+                        await retryPipeline.ExecuteAsync(
+                            static (state, cancellationToken) =>
+                                new ValueTask(state.sink.ProduceAsync(state.envelope, cancellationToken)),
+                            (sink, envelope),
+                            context.RequestAborted);
+                    }
+                    else await sink.ProduceAsync(envelope, context.RequestAborted);
                 }
-                else await sink.ProduceAsync(envelope, context.RequestAborted);
+                catch (Exception ex)
+                {
+                    HookpipeMetrics.SinkErrorsTotal.WithLabels(endpointId, sinkId).Inc();
+                    logger.LogError(ex, "[Hookpipe.Endpoint:{EndpointId}] Sink '{SinkId}' failed to produce",
+                        endpointId, sinkId);
+                    throw;
+                }
 
                 logger.LogDebug("[Hookpipe.Endpoint:{EndpointId}] Message '{MessageId}' produced to sink '{SinkId}'",
                     endpointId, envelope.Id, sinkId);
+                HookpipeMetrics.MessagesProducedTotal.WithLabels(endpointId, sinkId).Inc();
             }
 
             HookpipeMetrics.RequestsTotal.WithLabels(endpointId, context.Request.Method, "202").Inc();
@@ -246,3 +257,8 @@ internal static partial class Patterns
     [GeneratedRegex(@"\{(\w+)\}")]
     public static partial Regex PathParamPattern();
 }
+
+/// <summary>
+/// Entry point marker for ASP.NET Core integration tests.
+/// </summary>
+public partial class Program;
