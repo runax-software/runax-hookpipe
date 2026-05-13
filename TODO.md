@@ -5,8 +5,8 @@
 ### Sinks
 - [x] Redis Streams sink
 - [x] Google Pub/Sub sink
-- [ ] Amazon SNS sink
-- [ ] Amazon EventBridge sink
+- [x] Amazon SNS sink
+- [x] Amazon EventBridge sink
 
 ### Validators
 - [x] Stripe signature validator (`stripe-v1`)
