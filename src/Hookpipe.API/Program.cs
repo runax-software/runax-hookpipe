@@ -3,7 +3,6 @@ using Hookpipe.Core.Config;
 using Hookpipe.Core.Services;
 using Hookpipe.Core.Sinks;
 using Hookpipe.Core.Validation;
-using Hookpipe.Core.Metrics;
 using Prometheus;
 using Serilog;
 using Serilog.Sinks.Grafana.Loki;
@@ -56,12 +55,14 @@ var rateLimiters = new Dictionary<string, RateLimiter>();
 foreach (var ep in configProvider.Current.Endpoints)
 {
     if (ep.RateLimit is null) continue;
+
     rateLimiters[ep.Id] = new FixedWindowRateLimiter(new FixedWindowRateLimiterOptions
     {
         PermitLimit = ep.RateLimit.Requests,
         Window = TimeSpan.FromSeconds(ep.RateLimit.WindowSeconds),
         QueueLimit = 0,
     });
+
     startupLogger.LogInformation(
         "[Hookpipe.Endpoint:{Id}] Rate limit: {Requests} requests per {Window}s",
         ep.Id, ep.RateLimit.Requests, ep.RateLimit.WindowSeconds);
@@ -71,7 +72,6 @@ foreach (var ep in configProvider.Current.Endpoints)
 // Validation, sink routing, and message config are read from live config on each request.
 foreach (var endpoint in configProvider.Current.Endpoints)
 {
-    var endpointId = endpoint.Id;
     var paramNames = new List<string>();
     var pattern = "^" + Patterns.PathParamPattern().Replace(Regex.Escape(endpoint.Path), method =>
     {
@@ -79,137 +79,23 @@ foreach (var endpoint in configProvider.Current.Endpoints)
         return @"([^/]+)";
     }) + "$";
     var regex = new Regex(pattern, RegexOptions.Compiled);
-    var logger = loggerFactory.CreateLogger($"Hookpipe.Endpoint.{endpointId}");
+
+    var handler = new WebhookHandler(
+        endpointId: endpoint.Id,
+        regex: regex,
+        paramNames: paramNames,
+        logger: loggerFactory.CreateLogger($"Hookpipe.Endpoint.{endpoint.Id}"),
+        configProvider: configProvider,
+        sinks: sinks,
+        retryPipelines: retryPipelines,
+        validators: validators,
+        rateLimiters: rateLimiters,
+        envelopeBuilder: envelopeBuilder);
 
     startupLogger.LogInformation("[Hookpipe.Endpoint:{Id}] Registered {Methods} {Path} -> sinks [{Sinks}]",
-        endpointId, string.Join("|", endpoint.Methods), endpoint.Path, string.Join(", ", endpoint.GetResolvedSinks()));
+        endpoint.Id, string.Join("|", endpoint.Methods), endpoint.Path, string.Join(", ", endpoint.GetResolvedSinks()));
 
-    app.Map(endpoint.Path, async context =>
-    {
-        using var timer = HookpipeMetrics.RequestDuration.WithLabels(endpointId).NewTimer();
-
-        // Look up live config for this endpoint
-        var liveEndpoint = configProvider.Current.Endpoints.FirstOrDefault(e => e.Id == endpointId);
-        if (liveEndpoint is null)
-        {
-            logger.LogDebug("[Hookpipe.Endpoint:{EndpointId}] Endpoint removed from config, returning 404",
-                endpointId);
-            HookpipeMetrics.RequestsTotal.WithLabels(endpointId, context.Request.Method, "404").Inc();
-            context.Response.StatusCode = 404;
-            return;
-        }
-
-        var methods = liveEndpoint.Methods.Select(m => m.ToUpperInvariant()).ToHashSet();
-
-        if (!methods.Contains(context.Request.Method))
-        {
-            logger.LogDebug("[Hookpipe.Endpoint:{EndpointId}] Method not allowed: {Method}",
-                endpointId, context.Request.Method);
-            HookpipeMetrics.RequestsTotal.WithLabels(endpointId, context.Request.Method, "405").Inc();
-            context.Response.StatusCode = 405;
-            return;
-        }
-
-        if (rateLimiters.TryGetValue(endpointId, out var limiter))
-        {
-            using var lease = await limiter.AcquireAsync(1, context.RequestAborted);
-            if (!lease.IsAcquired)
-            {
-                logger.LogDebug("[Hookpipe.Endpoint:{EndpointId}] Rate limit exceeded", endpointId);
-                HookpipeMetrics.RequestsTotal.WithLabels(endpointId, context.Request.Method, "429").Inc();
-                context.Response.StatusCode = 429;
-                await context.Response.WriteAsJsonAsync(new { error = "rate_limit_exceeded", endpoint_id = endpointId });
-                return;
-            }
-        }
-
-        if (liveEndpoint.Validation is not null)
-        {
-            IValidator? validator = null;
-
-            if (liveEndpoint.Validation.Auth is not null)
-                validators.TryGetValue(liveEndpoint.Validation.Auth.Type, out validator);
-            else if (liveEndpoint.Validation.Signature is not null)
-                validators.TryGetValue(liveEndpoint.Validation.Signature.Algorithm, out validator);
-
-            if (validator is null || !await validator.ValidateAsync(context, liveEndpoint.Validation))
-            {
-                logger.LogDebug("[Hookpipe.Endpoint:{EndpointId}] Validation failed, returning 401", endpointId);
-                HookpipeMetrics.ValidationFailuresTotal.WithLabels(endpointId, validator?.Type ?? "unknown").Inc();
-                HookpipeMetrics.RequestsTotal.WithLabels(endpointId, context.Request.Method, "401").Inc();
-                context.Response.StatusCode = 401;
-                await context.Response.WriteAsJsonAsync(new { error = "unauthorized" });
-                return;
-            }
-
-            logger.LogDebug("[Hookpipe.Endpoint:{EndpointId}] Validation passed ({ValidatorType})",
-                endpointId, validator.Type);
-        }
-
-        try
-        {
-            Dictionary<string, string>? pathParams = null;
-            var match = regex.Match(context.Request.Path.Value ?? "");
-
-            if (match.Success && paramNames.Count > 0)
-            {
-                pathParams = [];
-                for (var i = 0; i < paramNames.Count; i++)
-                    pathParams[paramNames[i]] = match.Groups[i + 1].Value;
-
-                logger.LogDebug("[Hookpipe.Endpoint:{EndpointId}] Extracted {Count} path param(s)", endpointId,
-                    pathParams.Count);
-            }
-
-            var envelope = await envelopeBuilder.BuildAsync(context, liveEndpoint, pathParams);
-            var resolvedSinks = liveEndpoint.GetResolvedSinks();
-
-            foreach (var sinkId in resolvedSinks)
-            {
-                if (!sinks.TryGetValue(sinkId, out var sink))
-                {
-                    logger.LogError("[Hookpipe.Endpoint:{EndpointId}] Sink '{SinkId}' not found", endpointId, sinkId);
-                    HookpipeMetrics.SinkErrorsTotal.WithLabels(endpointId, sinkId).Inc();
-                    continue;
-                }
-
-                try
-                {
-                    if (retryPipelines.TryGetValue(sinkId, out var retryPipeline))
-                    {
-                        await retryPipeline.ExecuteAsync(
-                            static (state, cancellationToken) =>
-                                new ValueTask(state.sink.ProduceAsync(state.envelope, cancellationToken)),
-                            (sink, envelope),
-                            context.RequestAborted);
-                    }
-                    else await sink.ProduceAsync(envelope, context.RequestAborted);
-                }
-                catch (Exception ex)
-                {
-                    HookpipeMetrics.SinkErrorsTotal.WithLabels(endpointId, sinkId).Inc();
-                    logger.LogError(ex, "[Hookpipe.Endpoint:{EndpointId}] Sink '{SinkId}' failed to produce",
-                        endpointId, sinkId);
-                    throw;
-                }
-
-                logger.LogDebug("[Hookpipe.Endpoint:{EndpointId}] Message '{MessageId}' produced to sink '{SinkId}'",
-                    endpointId, envelope.Id, sinkId);
-                HookpipeMetrics.MessagesProducedTotal.WithLabels(endpointId, sinkId).Inc();
-            }
-
-            HookpipeMetrics.RequestsTotal.WithLabels(endpointId, context.Request.Method, "202").Inc();
-            context.Response.StatusCode = 202;
-            await context.Response.WriteAsJsonAsync(new { status = "accepted", endpoint_id = endpointId });
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "[Hookpipe.Endpoint:{EndpointId}] Failed to process request", endpointId);
-            HookpipeMetrics.RequestsTotal.WithLabels(endpointId, context.Request.Method, "500").Inc();
-            context.Response.StatusCode = 500;
-            await context.Response.WriteAsJsonAsync(new { error = "internal_error", endpoint_id = endpointId });
-        }
-    });
+    app.Map(endpoint.Path, handler.HandleAsync);
 }
 
 app.MapGet("/health", () => Results.Ok());
