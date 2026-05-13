@@ -161,8 +161,8 @@ public sealed class WebhookHandler(
         for (var i = 0; i < paramNames.Count; i++)
             pathParams[paramNames[i]] = match.Groups[i + 1].Value;
 
-        logger.LogDebug("[Hookpipe.Endpoint:{EndpointId}] Extracted {Count} path param(s)",
-            endpointId, pathParams.Count);
+        logger.LogDebug("[Hookpipe.Endpoint:{EndpointId}] Extracted {Count} path param(s)", endpointId,
+            pathParams.Count);
         return pathParams;
     }
 
@@ -171,38 +171,39 @@ public sealed class WebhookHandler(
     /// </summary>
     private async Task ProduceToSinks(HttpContext context, MessageEnvelope envelope, EndpointConfig endpoint)
     {
-        foreach (var sinkId in endpoint.GetResolvedSinks())
-        {
-            if (!sinks.TryGetValue(sinkId, out var sink))
+        await Task.WhenAll(endpoint.GetResolvedSinks()
+            .Select(async sinkId =>
             {
-                logger.LogError("[Hookpipe.Endpoint:{EndpointId}] Sink '{SinkId}' not found", endpointId, sinkId);
-                HookpipeMetrics.SinkErrorsTotal.WithLabels(endpointId, sinkId).Inc();
-                continue;
-            }
-
-            try
-            {
-                if (retryPipelines.TryGetValue(sinkId, out var retryPipeline))
+                if (!sinks.TryGetValue(sinkId, out var sink))
                 {
-                    await retryPipeline.ExecuteAsync(
-                        static (state, cancellationToken) =>
-                            new ValueTask(state.sink.ProduceAsync(state.envelope, cancellationToken)),
-                        (sink, envelope),
-                        context.RequestAborted);
+                    logger.LogError("[Hookpipe.Endpoint:{EndpointId}] Sink '{SinkId}' not found", endpointId, sinkId);
+                    HookpipeMetrics.SinkErrorsTotal.WithLabels(endpointId, sinkId).Inc();
+                    return;
                 }
-                else await sink.ProduceAsync(envelope, context.RequestAborted);
-            }
-            catch (Exception ex)
-            {
-                HookpipeMetrics.SinkErrorsTotal.WithLabels(endpointId, sinkId).Inc();
-                logger.LogError(ex, "[Hookpipe.Endpoint:{EndpointId}] Sink '{SinkId}' failed to produce",
-                    endpointId, sinkId);
-                throw;
-            }
 
-            logger.LogDebug("[Hookpipe.Endpoint:{EndpointId}] Message '{MessageId}' produced to sink '{SinkId}'",
-                endpointId, envelope.Id, sinkId);
-            HookpipeMetrics.MessagesProducedTotal.WithLabels(endpointId, sinkId).Inc();
-        }
+                try
+                {
+                    if (retryPipelines.TryGetValue(sinkId, out var retryPipeline))
+                    {
+                        await retryPipeline.ExecuteAsync(
+                            static (state, cancellationToken) =>
+                                new ValueTask(state.sink.ProduceAsync(state.envelope, cancellationToken)),
+                            (sink, envelope),
+                            context.RequestAborted);
+                    }
+                    else await sink.ProduceAsync(envelope, context.RequestAborted);
+
+                    logger.LogDebug(
+                        "[Hookpipe.Endpoint:{EndpointId}] Message '{MessageId}' produced to sink '{SinkId}'",
+                        endpointId, envelope.Id, sinkId);
+                    HookpipeMetrics.MessagesProducedTotal.WithLabels(endpointId, sinkId).Inc();
+                }
+                catch (Exception ex)
+                {
+                    HookpipeMetrics.SinkErrorsTotal.WithLabels(endpointId, sinkId).Inc();
+                    logger.LogError(ex, "[Hookpipe.Endpoint:{EndpointId}] Sink '{SinkId}' failed to produce",
+                        endpointId, sinkId);
+                }
+            }));
     }
 }

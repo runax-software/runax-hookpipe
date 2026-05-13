@@ -1,6 +1,6 @@
 # Roadmap
 
-## v0.2.0
+## v0.2.0 (done)
 
 ### Sinks
 - [x] Redis Streams sink
@@ -14,53 +14,47 @@
 - [x] API key header validator (custom header + key)
 
 ### Features
-- [x] Retry policy on sink failures (exponential backoff, dead-letter config)
+- [x] Retry policy on sink failures (exponential backoff)
 - [x] Rate limiting per endpoint
 
 ## v0.3.0
 
 ### Architecture
-- [ ] Extract handler into `WebhookHandler` class
-- [ ] Plugin system (load sinks/validators from external assemblies)
-- [ ] Multi-tenant support (API key -> tenant -> isolated config)
-
-### Observability
-- [ ] OpenTelemetry tracing
-- [ ] Grafana dashboard template
-- [ ] Healthcheck per sink (verify connectivity)
-
-### Deployment
-- [ ] Helm chart for Kubernetes
-- [ ] Docker Compose full stack (Hookpipe + RabbitMQ + Prometheus + Grafana)
-- [ ] ARM/multi-arch Docker images
-
-## v0.4.0
+- [x] Extract handler into `WebhookHandler` class
 
 ### Features
 - [ ] Conditional routing (route to different sinks based on body/header content)
-- [ ] Request/response transformation (modify body before producing)
-- [ ] Request deduplication (idempotency key from header or body field)
-- [ ] Delayed/scheduled delivery (produce after N seconds)
-- [ ] Config schema validation (JSON Schema for YAML)
+- [ ] Healthcheck per sink (verify connectivity)
+- [x] Parallel sink fan-out (produce to multiple sinks concurrently)
 
 ### Sinks
 - [ ] Azure Service Bus sink
 - [ ] NATS sink
+
+### Deployment
+- [ ] Docker Compose full stack (Hookpipe + RabbitMQ + Prometheus + Grafana)
+
+## v0.4.0
+
+### Features
+- [ ] Request deduplication (idempotency key from header or body field)
+- [ ] Request/response transformation (modify body before producing)
 - [ ] Webhook batching (buffer N messages, flush as array)
+- [ ] Request buffering (accept 202 immediately, produce async in background)
+- [ ] OpenTelemetry tracing
+
+### Observability
+- [ ] Grafana dashboard template
 
 ## v0.5.0
 
-### Security
-- [ ] mTLS support for sink connections
-- [ ] Encrypted config values (secrets encrypted at rest, decrypted at startup)
-
-### Performance
-- [ ] Parallel sink fan-out (produce to multiple sinks concurrently)
-- [ ] Connection pooling for HTTP relay sink
-- [ ] Request buffering (accept 202 immediately, produce async in background)
-
 ### Resilience
-- [ ] Webhook replay / dead-letter store (persist failed messages, replay later via Redis/SQLite/Postgres)
+- [ ] Webhook replay / dead-letter store (persist failed messages, replay later)
+- [ ] Delayed/scheduled delivery (produce after N seconds)
+
+### Deployment
+- [ ] Helm chart for Kubernetes
+- [ ] ARM/multi-arch Docker images
 
 ## v1.0.0
 
@@ -70,12 +64,4 @@
 - [ ] Full integration test suite for every sink
 - [ ] Load testing and benchmarks published
 - [ ] Migration guide from v0.x
-
-### Documentation
-- [ ] OpenAPI spec generation for registered endpoints
-- [ ] Web UI for config management and live request monitoring
 - [ ] Complete Grafana dashboard with all metrics
-
-### Deployment
-- [ ] Stable Helm chart published
-- [ ] Docker Hub / GHCR multi-arch images (amd64, arm64)
