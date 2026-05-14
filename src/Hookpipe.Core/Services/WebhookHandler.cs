@@ -46,12 +46,20 @@ public sealed class WebhookHandler(
         {
             var pathParams = ExtractPathParams(context);
             var envelope = await envelopeBuilder.BuildAsync(context, liveEndpoint, pathParams);
-            await ProduceToSinks(context, envelope, liveEndpoint);
+            var successCount = await ProduceToSinks(context, envelope, liveEndpoint);
 
-            HookpipeMetrics.RequestsTotal.WithLabels(endpointId, context.Request.Method, "202").Inc();
-            context.Response.StatusCode = 202;
-
-            await context.Response.WriteAsJsonAsync(new { status = "accepted", endpoint_id = endpointId });
+            if (successCount > 0)
+            {
+                HookpipeMetrics.RequestsTotal.WithLabels(endpointId, context.Request.Method, "202").Inc();
+                context.Response.StatusCode = 202;
+                await context.Response.WriteAsJsonAsync(new { status = "accepted", endpoint_id = endpointId });
+            }
+            else
+            {
+                HookpipeMetrics.RequestsTotal.WithLabels(endpointId, context.Request.Method, "500").Inc();
+                context.Response.StatusCode = 500;
+                await context.Response.WriteAsJsonAsync(new { error = "all_sinks_failed", endpoint_id = endpointId });
+            }
         }
         catch (Exception ex)
         {
@@ -167,10 +175,13 @@ public sealed class WebhookHandler(
     }
 
     /// <summary>
-    /// Produces the envelope to all resolved sinks with retry support.
+    /// Produces the envelope to all resolved sinks in parallel with retry support.
+    /// Returns the number of sinks that succeeded.
     /// </summary>
-    private async Task ProduceToSinks(HttpContext context, MessageEnvelope envelope, EndpointConfig endpoint)
+    private async Task<int> ProduceToSinks(HttpContext context, MessageEnvelope envelope, EndpointConfig endpoint)
     {
+        var successCount = 0;
+
         await Task.WhenAll(endpoint.GetResolvedSinks()
             .Select(async sinkId =>
             {
@@ -193,6 +204,7 @@ public sealed class WebhookHandler(
                     }
                     else await sink.ProduceAsync(envelope, context.RequestAborted);
 
+                    Interlocked.Increment(ref successCount);
                     logger.LogDebug(
                         "[Hookpipe.Endpoint:{EndpointId}] Message '{MessageId}' produced to sink '{SinkId}'",
                         endpointId, envelope.Id, sinkId);
@@ -205,5 +217,7 @@ public sealed class WebhookHandler(
                         endpointId, sinkId);
                 }
             }));
+
+        return successCount;
     }
 }
