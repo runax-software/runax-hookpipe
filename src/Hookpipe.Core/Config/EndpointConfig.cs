@@ -37,6 +37,12 @@ public sealed class EndpointConfig
     public List<string> Sinks { get; set; } = [];
 
     /// <summary>
+    /// Optional conditional routing rules. Evaluated in order — first match wins.
+    /// If null or empty, falls back to <see cref="Sink"/>/<see cref="Sinks"/>.
+    /// </summary>
+    public List<RoutingRule>? Routing { get; set; }
+
+    /// <summary>
     /// Returns the resolved list of sink IDs (merges Sink and Sinks).
     /// </summary>
     public List<string> GetResolvedSinks()

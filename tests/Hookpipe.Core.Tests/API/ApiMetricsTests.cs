@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 
 namespace Hookpipe.Core.Tests.API;
 
+[Collection("API")]
 public sealed class ApiMetricsTests
 {
     [Fact]
