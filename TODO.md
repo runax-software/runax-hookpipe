@@ -23,7 +23,7 @@
 - [x] Extract handler into `WebhookHandler` class
 
 ### Features
-- [ ] Conditional routing (route to different sinks based on body/header content)
+- [x] Conditional routing (route to different sinks based on body/header content)
 - [ ] Healthcheck per sink (verify connectivity)
 - [x] Parallel sink fan-out (produce to multiple sinks concurrently)
 
