@@ -29,6 +29,8 @@ public sealed class EventBridgeSinkIntegrationTests : IAsyncLifetime, IDisposabl
     {
         Environment.SetEnvironmentVariable(ServiceUrlEnv, ServiceUrl);
         Environment.SetEnvironmentVariable(RegionEnv, Region);
+        Environment.SetEnvironmentVariable("AWS_ACCESS_KEY_ID", "test");
+        Environment.SetEnvironmentVariable("AWS_SECRET_ACCESS_KEY", "test");
 
         var config = new AmazonEventBridgeConfig
         {
