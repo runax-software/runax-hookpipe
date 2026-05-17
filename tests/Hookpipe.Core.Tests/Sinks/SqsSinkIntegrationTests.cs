@@ -30,6 +30,8 @@ public sealed class SqsSinkIntegrationTests : IAsyncLifetime, IDisposable
     {
         Environment.SetEnvironmentVariable(ServiceUrlEnv, ServiceUrl);
         Environment.SetEnvironmentVariable(RegionEnv, Region);
+        Environment.SetEnvironmentVariable("AWS_ACCESS_KEY_ID", "test");
+        Environment.SetEnvironmentVariable("AWS_SECRET_ACCESS_KEY", "test");
 
         var readerConfig = new AmazonSQSConfig
         {
