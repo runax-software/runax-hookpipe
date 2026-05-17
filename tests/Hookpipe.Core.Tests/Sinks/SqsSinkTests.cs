@@ -10,17 +10,20 @@ public sealed class SqsSinkTests : IDisposable
 {
     private const string EnvVar = "TEST_SQS_QUEUE_URL";
     private const string RegionEnvVar = "TEST_AWS_REGION";
+    private const string ServiceUrlEnvVar = "TEST_SQS_SERVICE_URL";
 
     public SqsSinkTests()
     {
-        // AWS SDK requires a region — always set for tests
         Environment.SetEnvironmentVariable(RegionEnvVar, "us-east-1");
+        // Use a fake service URL so the SDK doesn't try real AWS credentials
+        Environment.SetEnvironmentVariable(ServiceUrlEnvVar, "http://localhost:4566");
     }
 
     public void Dispose()
     {
         Environment.SetEnvironmentVariable(EnvVar, null);
         Environment.SetEnvironmentVariable(RegionEnvVar, null);
+        Environment.SetEnvironmentVariable(ServiceUrlEnvVar, null);
     }
 
     private static SinkConfig MakeConfig(Dictionary<string, string>? settings = null) => new()
@@ -31,6 +34,7 @@ public sealed class SqsSinkTests : IDisposable
         {
             ["queue_url_env"] = EnvVar,
             ["region_env"] = RegionEnvVar,
+            ["service_url_env"] = ServiceUrlEnvVar,
         },
     };
 
@@ -49,7 +53,12 @@ public sealed class SqsSinkTests : IDisposable
     public void Create_MissingEnvVar_Throws()
     {
         var act = () => SqsSink.Create(
-            MakeConfig(new() { ["queue_url_env"] = "NONEXISTENT_VAR", ["region_env"] = RegionEnvVar }),
+            MakeConfig(new()
+            {
+                ["queue_url_env"] = "NONEXISTENT_VAR",
+                ["region_env"] = RegionEnvVar,
+                ["service_url_env"] = ServiceUrlEnvVar,
+            }),
             Substitute.For<ILogger<SqsSink>>());
 
         act.Should().Throw<InvalidOperationException>()
