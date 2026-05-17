@@ -16,6 +16,7 @@ namespace Hookpipe.Core.Tests.Sinks;
 /// Creates an SNS topic + SQS queue subscription to verify messages.
 /// </summary>
 [Trait("Category", "Integration")]
+[Collection("AWS")]
 public sealed class SnsSinkIntegrationTests : IAsyncLifetime, IDisposable
 {
     private const string ServiceUrl = "http://localhost:4566";

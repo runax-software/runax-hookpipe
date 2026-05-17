@@ -13,6 +13,7 @@ namespace Hookpipe.Core.Tests.Sinks;
 /// Requires LocalStack running on localhost:4566 (docker compose up).
 /// </summary>
 [Trait("Category", "Integration")]
+[Collection("AWS")]
 public sealed class EventBridgeSinkIntegrationTests : IAsyncLifetime, IDisposable
 {
     private const string ServiceUrl = "http://localhost:4566";
