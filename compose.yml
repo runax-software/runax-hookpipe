@@ -40,3 +40,32 @@ services:
     command: gcloud beta emulators pubsub start --host-port=0.0.0.0:8085
     ports:
       - "8085:8085"
+
+  azure-sql:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "StrongP@ssw0rd!"
+      MSSQL_PID: Express
+
+  servicebus-emulator:
+    image: mcr.microsoft.com/azure-messaging/servicebus-emulator:latest
+    ports:
+      - "5673:5672"
+    depends_on:
+      - azure-sql
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "StrongP@ssw0rd!"
+      SQL_SERVER: azure-sql
+
+  eventhub-emulator:
+    image: mcr.microsoft.com/azure-messaging/eventhubs-emulator:latest
+    ports:
+      - "5674:5672"
+    depends_on:
+      - azure-sql
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "StrongP@ssw0rd!"
+      SQL_SERVER: azure-sql
