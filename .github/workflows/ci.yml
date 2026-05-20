@@ -67,13 +67,10 @@ jobs:
           --health-timeout 5s
           --health-retries 5
 
-      localstack:
-        image: localstack/localstack:latest
+      floci:
+        image: floci/floci:latest
         ports:
           - 4566:4566
-        env:
-          SERVICES: sqs,sns,events
-          LOCALSTACK_AUTH_TOKEN: ${{ secrets.LOCALSTACK_AUTH_TOKEN }}
 
     steps:
       - uses: actions/checkout@v6
