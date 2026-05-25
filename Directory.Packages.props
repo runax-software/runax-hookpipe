@@ -17,6 +17,8 @@
     <!-- Resilience -->
     <PackageVersion Include="Polly.Core" Version="8.6.6" />
     <!-- Sinks -->
+    <PackageVersion Include="Azure.Messaging.EventHubs" Version="5.12.2" />
+    <PackageVersion Include="Azure.Messaging.ServiceBus" Version="7.20.1" />
     <PackageVersion Include="AWSSDK.EventBridge" Version="4.0.5.14" />
     <PackageVersion Include="AWSSDK.SimpleNotificationService" Version="4.0.2.7" />
     <PackageVersion Include="AWSSDK.SQS" Version="4.0.2.14" />

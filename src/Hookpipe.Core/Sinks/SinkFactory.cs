@@ -41,7 +41,11 @@ public static class SinkFactory
                 GooglePubSubSink.TypeName => await GooglePubSubSink.CreateAsync(sinkConfig,
                     loggerFactory.CreateLogger<GooglePubSubSink>()),
                 SnsSink.TypeName => SnsSink.Create(sinkConfig, loggerFactory.CreateLogger<SnsSink>()),
-                EventBridgeSink.TypeName => EventBridgeSink.Create(sinkConfig, loggerFactory.CreateLogger<EventBridgeSink>()),
+                EventBridgeSink.TypeName => EventBridgeSink.Create(sinkConfig,
+                    loggerFactory.CreateLogger<EventBridgeSink>()),
+                ServiceBusSink.TypeName => ServiceBusSink.Create(sinkConfig,
+                    loggerFactory.CreateLogger<ServiceBusSink>()),
+                EventHubSink.TypeName => EventHubSink.Create(sinkConfig, loggerFactory.CreateLogger<EventHubSink>()),
                 _ => throw new InvalidOperationException($"Unknown sink type: '{sinkConfig.Type}'"),
             };
 

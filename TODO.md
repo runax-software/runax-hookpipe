@@ -28,7 +28,8 @@
 - [x] Parallel sink fan-out (produce to multiple sinks concurrently)
 
 ### Sinks
-- [ ] Azure Service Bus sink
+- [x] Azure Service Bus sink
+- [x] Azure Event Hub sink
 - [ ] NATS sink
 
 ### Deployment
