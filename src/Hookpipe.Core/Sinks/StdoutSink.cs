@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Hookpipe.Core.Models;
+using Hookpipe.Core.Sinks.Health;
 using Microsoft.Extensions.Logging;
 
 namespace Hookpipe.Core.Sinks;
@@ -9,7 +10,7 @@ namespace Hookpipe.Core.Sinks;
 /// Sink that writes message envelopes to stdout as formatted JSON.
 /// Intended for development and debugging. No external dependencies.
 /// </summary>
-public sealed class StdoutSink(ILogger<StdoutSink> logger) : ISink
+public sealed class StdoutSink(ILogger<StdoutSink> logger) : ISink, ISinkHealthCheck
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -34,4 +35,8 @@ public sealed class StdoutSink(ILogger<StdoutSink> logger) : ISink
 
         return Task.CompletedTask;
     }
+
+    /// <inheritdoc />
+    public Task<SinkHealth> CheckHealthAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult(new SinkHealth(SinkHealthStatus.Healthy));
 }

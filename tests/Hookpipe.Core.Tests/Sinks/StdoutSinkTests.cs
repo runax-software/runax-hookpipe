@@ -1,6 +1,7 @@
 using FluentAssertions;
 using Hookpipe.Core.Models;
 using Hookpipe.Core.Sinks;
+using Hookpipe.Core.Sinks.Health;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
 
@@ -8,6 +9,16 @@ namespace Hookpipe.Core.Tests.Sinks;
 
 public sealed class StdoutSinkTests
 {
+    [Fact]
+    public async Task CheckHealthAsync_ReturnsHealthy()
+    {
+        var sink = new StdoutSink(Substitute.For<ILogger<StdoutSink>>());
+
+        var health = await sink.CheckHealthAsync();
+
+        health.Status.Should().Be(SinkHealthStatus.Healthy);
+    }
+
     [Fact]
     public void Type_ReturnsStdout()
     {

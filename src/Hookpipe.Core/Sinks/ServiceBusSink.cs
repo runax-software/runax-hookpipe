@@ -2,6 +2,7 @@ using System.Text.Json;
 using Azure.Messaging.ServiceBus;
 using Hookpipe.Core.Config;
 using Hookpipe.Core.Models;
+using Hookpipe.Core.Sinks.Health;
 using Microsoft.Extensions.Logging;
 
 namespace Hookpipe.Core.Sinks;
@@ -10,7 +11,7 @@ namespace Hookpipe.Core.Sinks;
 /// Sink that sends message envelopes to an Azure Service Bus queue or topic.
 /// Settings: connection_string_env, queue_or_topic (from <see cref="SinkConfig.Settings"/>).
 /// </summary>
-public sealed class ServiceBusSink : ISink, IAsyncDisposable
+public sealed class ServiceBusSink : ISink, ISinkHealthCheck, IAsyncDisposable
 {
     /// <summary>
     /// The sink type identifier.
@@ -20,17 +21,20 @@ public sealed class ServiceBusSink : ISink, IAsyncDisposable
     private readonly ILogger<ServiceBusSink> _logger;
     private readonly ServiceBusSender _sender;
     private readonly ServiceBusClient _client;
+    private readonly string _queueOrTopic;
     private readonly string _sinkId;
 
     private ServiceBusSink(
         ILogger<ServiceBusSink> logger,
         ServiceBusClient client,
         ServiceBusSender sender,
+        string queueOrTopic,
         string sinkId)
     {
         _logger = logger;
         _client = client;
         _sender = sender;
+        _queueOrTopic = queueOrTopic;
         _sinkId = sinkId;
     }
 
@@ -62,7 +66,7 @@ public sealed class ServiceBusSink : ISink, IAsyncDisposable
         logger.LogInformation("[Hookpipe.Sink:servicebus:{SinkId}] Connected to '{QueueOrTopic}'", sinkConfig.Id,
             queueOrTopic);
 
-        return new ServiceBusSink(logger, client, sender, sinkConfig.Id);
+        return new ServiceBusSink(logger, client, sender, queueOrTopic, sinkConfig.Id);
     }
 
     /// <inheritdoc />
@@ -81,6 +85,25 @@ public sealed class ServiceBusSink : ISink, IAsyncDisposable
 
         await _sender.SendMessageAsync(sbMessage, cancellationToken);
         _logger.LogDebug("[Hookpipe.Sink:servicebus:{SinkId}] Sent message '{MessageId}'", _sinkId, message.Id);
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// Probes connectivity by peeking the entity. Works for queues; topics require a
+    /// subscription to peek, so a topic sink will report Unhealthy with the SDK error.
+    /// </remarks>
+    public async Task<SinkHealth> CheckHealthAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await using var receiver = _client.CreateReceiver(_queueOrTopic);
+            await receiver.PeekMessageAsync(cancellationToken: cancellationToken);
+            return new SinkHealth(SinkHealthStatus.Healthy);
+        }
+        catch (Exception ex)
+        {
+            return new SinkHealth(SinkHealthStatus.Unhealthy, ex.Message);
+        }
     }
 
     /// <inheritdoc />

@@ -2,6 +2,7 @@ using System.Text.Json;
 using Confluent.Kafka;
 using Hookpipe.Core.Config;
 using Hookpipe.Core.Models;
+using Hookpipe.Core.Sinks.Health;
 using Microsoft.Extensions.Logging;
 
 namespace Hookpipe.Core.Sinks;
@@ -11,7 +12,7 @@ namespace Hookpipe.Core.Sinks;
 /// Uses idempotent producer with <see cref="Acks.All"/> for reliable delivery.
 /// Settings: brokers_env, topic (from <see cref="SinkConfig.Settings"/>).
 /// </summary>
-public sealed class KafkaSink : ISink, IDisposable
+public sealed class KafkaSink : ISink, ISinkHealthCheck, IDisposable
 {
     /// <summary>
     /// The sink type identifier.
@@ -85,6 +86,21 @@ public sealed class KafkaSink : ISink, IDisposable
         _logger.LogDebug(
             "[Hookpipe.Sink:kafka:{SinkId}] Published message '{MessageId}' to topic='{Topic}' partition={Partition} offset={Offset}",
             _sinkId, message.Id, _topic, result.Partition.Value, result.Offset.Value);
+    }
+
+    /// <inheritdoc />
+    public Task<SinkHealth> CheckHealthAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            using var admin = new DependentAdminClientBuilder(_producer.Handle).Build();
+            admin.GetMetadata(_topic, TimeSpan.FromSeconds(5));
+            return Task.FromResult(new SinkHealth(SinkHealthStatus.Healthy));
+        }
+        catch (Exception ex)
+        {
+            return Task.FromResult(new SinkHealth(SinkHealthStatus.Unhealthy, ex.Message));
+        }
     }
 
     /// <inheritdoc />

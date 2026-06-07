@@ -3,6 +3,7 @@ using Amazon.EventBridge;
 using Amazon.EventBridge.Model;
 using Hookpipe.Core.Config;
 using Hookpipe.Core.Models;
+using Hookpipe.Core.Sinks.Health;
 using Microsoft.Extensions.Logging;
 
 namespace Hookpipe.Core.Sinks;
@@ -11,7 +12,7 @@ namespace Hookpipe.Core.Sinks;
 /// Sink that puts message envelopes to an AWS EventBridge event bus.
 /// Settings: event_bus_env, source, detail_type, region_env, service_url_env (from <see cref="SinkConfig.Settings"/>).
 /// </summary>
-public sealed class EventBridgeSink : ISink, IDisposable
+public sealed class EventBridgeSink : ISink, ISinkHealthCheck, IDisposable
 {
     /// <summary>
     /// The sink type identifier.
@@ -116,6 +117,21 @@ public sealed class EventBridgeSink : ISink, IDisposable
         _logger.LogDebug(
             "[Hookpipe.Sink:eventbridge:{SinkId}] Put event '{MessageId}', EventId='{EventId}'",
             _sinkId, message.Id, response.Entries[0].EventId);
+    }
+
+    /// <inheritdoc />
+    public async Task<SinkHealth> CheckHealthAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await _client.DescribeEventBusAsync(
+                new DescribeEventBusRequest { Name = _eventBus }, cancellationToken);
+            return new SinkHealth(SinkHealthStatus.Healthy);
+        }
+        catch (Exception ex)
+        {
+            return new SinkHealth(SinkHealthStatus.Unhealthy, ex.Message);
+        }
     }
 
     /// <inheritdoc />

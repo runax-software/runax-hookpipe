@@ -3,6 +3,7 @@ using Amazon.SimpleNotificationService;
 using Amazon.SimpleNotificationService.Model;
 using Hookpipe.Core.Config;
 using Hookpipe.Core.Models;
+using Hookpipe.Core.Sinks.Health;
 using Microsoft.Extensions.Logging;
 
 namespace Hookpipe.Core.Sinks;
@@ -11,7 +12,7 @@ namespace Hookpipe.Core.Sinks;
 /// Sink that publishes message envelopes to an AWS SNS topic.
 /// Settings: topic_arn_env, region_env, service_url_env (from <see cref="SinkConfig.Settings"/>).
 /// </summary>
-public sealed class SnsSink : ISink, IDisposable
+public sealed class SnsSink : ISink, ISinkHealthCheck, IDisposable
 {
     public const string TypeName = "sns";
 
@@ -77,6 +78,19 @@ public sealed class SnsSink : ISink, IDisposable
 
         _logger.LogDebug("[Hookpipe.Sink:sns:{SinkId}] Published message '{MessageId}', SNS ID='{SnsMessageId}'",
             _sinkId, message.Id, response.MessageId);
+    }
+
+    public async Task<SinkHealth> CheckHealthAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await _client.GetTopicAttributesAsync(_topicArn, cancellationToken);
+            return new SinkHealth(SinkHealthStatus.Healthy);
+        }
+        catch (Exception ex)
+        {
+            return new SinkHealth(SinkHealthStatus.Unhealthy, ex.Message);
+        }
     }
 
     public void Dispose() => _client.Dispose();

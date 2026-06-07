@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Hookpipe.Core.Config;
 using Hookpipe.Core.Models;
+using Hookpipe.Core.Sinks.Health;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
 
@@ -10,7 +11,7 @@ namespace Hookpipe.Core.Sinks;
 /// Sink that appends message envelope to a Redis Stream.
 /// Settings: connection_env, stream_key (from <see cref="SinkConfig.Settings"/>).
 /// </summary>
-public sealed class RedisStreamSink : ISink, IDisposable
+public sealed class RedisStreamSink : ISink, ISinkHealthCheck, IDisposable
 {
     /// <summary>
     /// The sink type identifier.
@@ -77,6 +78,20 @@ public sealed class RedisStreamSink : ISink, IDisposable
         _logger.LogDebug(
             "[Hookpipe.Sink:redis-stream:{SinkId}] Appended message '{MessageId}' to stream '{StreamKey}', entry={EntryId}",
             _sinkId, message.Id, _streamKey, entryId);
+    }
+
+    /// <inheritdoc />
+    public async Task<SinkHealth> CheckHealthAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await _connection.GetDatabase().PingAsync();
+            return new SinkHealth(SinkHealthStatus.Healthy);
+        }
+        catch (Exception ex)
+        {
+            return new SinkHealth(SinkHealthStatus.Unhealthy, ex.Message);
+        }
     }
 
     /// <inheritdoc />

@@ -2,6 +2,7 @@ using System.Text.RegularExpressions;
 using Hookpipe.Core.Config;
 using Hookpipe.Core.Services;
 using Hookpipe.Core.Sinks;
+using Hookpipe.Core.Sinks.Health;
 using Hookpipe.Core.Validation;
 using Prometheus;
 using Serilog;
@@ -99,6 +100,8 @@ foreach (var endpoint in configProvider.Current.Endpoints)
 }
 
 app.MapGet("/health", () => Results.Ok());
+
+app.MapSinkHealthChecks(sinks);
 
 app.Lifetime.ApplicationStopping.Register(() =>
 {

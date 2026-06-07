@@ -3,6 +3,7 @@ using Amazon.SQS;
 using Amazon.SQS.Model;
 using Hookpipe.Core.Config;
 using Hookpipe.Core.Models;
+using Hookpipe.Core.Sinks.Health;
 using Microsoft.Extensions.Logging;
 
 namespace Hookpipe.Core.Sinks;
@@ -11,7 +12,7 @@ namespace Hookpipe.Core.Sinks;
 /// Sink that sends message envelopes to an AWS SQS queue.
 /// Settings: queue_url_env, region_env (from <see cref="SinkConfig.Settings"/>).
 /// </summary>
-public sealed class SqsSink : ISink, IDisposable
+public sealed class SqsSink : ISink, ISinkHealthCheck, IDisposable
 {
     /// <summary>
     /// The sink type identifier.
@@ -100,6 +101,22 @@ public sealed class SqsSink : ISink, IDisposable
         _logger.LogDebug(
             "[Hookpipe.Sink:sqs:{SinkId}] Sent message '{MessageId}', SQS message ID='{SqsMessageId}'",
             _sinkId, message.Id, response.MessageId);
+    }
+
+    /// <inheritdoc />
+    public async Task<SinkHealth> CheckHealthAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await _client.GetQueueAttributesAsync(
+                new GetQueueAttributesRequest { QueueUrl = _queueUrl, AttributeNames = ["QueueArn"] },
+                cancellationToken);
+            return new SinkHealth(SinkHealthStatus.Healthy);
+        }
+        catch (Exception ex)
+        {
+            return new SinkHealth(SinkHealthStatus.Unhealthy, ex.Message);
+        }
     }
 
     /// <inheritdoc />

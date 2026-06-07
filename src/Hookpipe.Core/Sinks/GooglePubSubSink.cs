@@ -1,8 +1,10 @@
 using System.Text.Json;
 using Google.Cloud.PubSub.V1;
 using Google.Protobuf;
+using Google.Api.Gax;
 using Hookpipe.Core.Config;
 using Hookpipe.Core.Models;
+using Hookpipe.Core.Sinks.Health;
 using Microsoft.Extensions.Logging;
 
 namespace Hookpipe.Core.Sinks;
@@ -11,7 +13,7 @@ namespace Hookpipe.Core.Sinks;
 /// Sink that publishes message envelopes to a Google Cloud Pub/Sub topic.
 /// Settings: project_id_env, topic_id_env, emulator_host_env (from <see cref="SinkConfig.Settings"/>).
 /// </summary>
-public sealed class GooglePubSubSink : ISink, IAsyncDisposable
+public sealed class GooglePubSubSink : ISink, ISinkHealthCheck, IAsyncDisposable
 {
     /// <summary>
     /// The sink type identifier.
@@ -20,12 +22,15 @@ public sealed class GooglePubSubSink : ISink, IAsyncDisposable
 
     private readonly ILogger<GooglePubSubSink> _logger;
     private readonly PublisherClient _publisher;
+    private readonly TopicName _topicName;
     private readonly string _sinkId;
 
-    private GooglePubSubSink(ILogger<GooglePubSubSink> logger, PublisherClient publisher, string sinkId)
+    private GooglePubSubSink(
+        ILogger<GooglePubSubSink> logger, PublisherClient publisher, TopicName topicName, string sinkId)
     {
         _logger = logger;
         _publisher = publisher;
+        _topicName = topicName;
         _sinkId = sinkId;
     }
 
@@ -53,7 +58,7 @@ public sealed class GooglePubSubSink : ISink, IAsyncDisposable
             "[Hookpipe.Sink:google-pubsub:{SinkId}] Connected to project='{ProjectId}', topic='{TopicId}'",
             sinkConfig.Id, projectId, topicId);
 
-        return new GooglePubSubSink(logger, publisher, sinkConfig.Id);
+        return new GooglePubSubSink(logger, publisher, topicName, sinkConfig.Id);
     }
 
     /// <inheritdoc />
@@ -74,6 +79,25 @@ public sealed class GooglePubSubSink : ISink, IAsyncDisposable
         _logger.LogDebug(
             "[Hookpipe.Sink:google-pubsub:{SinkId}] Published message '{MessageId}', Pub/Sub ID = '{PubSubMessageId}'",
             _sinkId, message.Id, messageId);
+    }
+
+    /// <inheritdoc />
+    public async Task<SinkHealth> CheckHealthAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var api = await new PublisherServiceApiClientBuilder
+            {
+                EmulatorDetection = EmulatorDetection.EmulatorOrProduction,
+            }.BuildAsync(cancellationToken);
+
+            await api.GetTopicAsync(_topicName, cancellationToken);
+            return new SinkHealth(SinkHealthStatus.Healthy);
+        }
+        catch (Exception ex)
+        {
+            return new SinkHealth(SinkHealthStatus.Unhealthy, ex.Message);
+        }
     }
 
     public async ValueTask DisposeAsync()

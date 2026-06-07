@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.Json;
 using Hookpipe.Core.Config;
 using Hookpipe.Core.Models;
+using Hookpipe.Core.Sinks.Health;
 using Microsoft.Extensions.Logging;
 using RabbitMQ.Client;
 
@@ -12,7 +13,7 @@ namespace Hookpipe.Core.Sinks;
 /// Declares the exchange as topic/durable on startup.
 /// Settings: url_env, exchange, routing_key (from <see cref="SinkConfig.Settings"/>).
 /// </summary>
-public sealed class RabbitMqSink : ISink, IAsyncDisposable
+public sealed class RabbitMqSink : ISink, ISinkHealthCheck, IAsyncDisposable
 {
     /// <summary>
     /// The sink type identifier.
@@ -104,6 +105,16 @@ public sealed class RabbitMqSink : ISink, IAsyncDisposable
         _logger.LogDebug(
             "[Hookpipe.Sink:rabbitmq:{SinkId}] Published message '{MessageId}' to exchange='{Exchange}' routing_key='{RoutingKey}'",
             _sinkId, message.Id, _exchange, _routingKey);
+    }
+
+    /// <inheritdoc />
+    public Task<SinkHealth> CheckHealthAsync(CancellationToken cancellationToken = default)
+    {
+        var health = _connection.IsOpen && _channel.IsOpen
+            ? new SinkHealth(SinkHealthStatus.Healthy)
+            : new SinkHealth(SinkHealthStatus.Unhealthy, "connection or channel is closed");
+
+        return Task.FromResult(health);
     }
 
     /// <inheritdoc />

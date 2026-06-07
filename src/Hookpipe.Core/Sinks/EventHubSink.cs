@@ -4,6 +4,7 @@ using Azure.Messaging.EventHubs;
 using Azure.Messaging.EventHubs.Producer;
 using Hookpipe.Core.Config;
 using Hookpipe.Core.Models;
+using Hookpipe.Core.Sinks.Health;
 using Microsoft.Extensions.Logging;
 
 namespace Hookpipe.Core.Sinks;
@@ -12,7 +13,7 @@ namespace Hookpipe.Core.Sinks;
 /// Sink that sends message envelopes to an Azure Event Hub.
 /// Settings: connection_string_env, event_hub_name (from <see cref="SinkConfig.Settings"/>).
 /// </summary>
-public sealed class EventHubSink : ISink, IAsyncDisposable
+public sealed class EventHubSink : ISink, ISinkHealthCheck, IAsyncDisposable
 {
     /// <summary>
     /// The sink type identifier.
@@ -76,6 +77,20 @@ public sealed class EventHubSink : ISink, IAsyncDisposable
 
         await _producer.SendAsync([eventData], cancellationToken);
         _logger.LogDebug("[Hookpipe.Sink:eventhub:{SinkId}] Sent message '{MessageId}'", _sinkId, message.Id);
+    }
+
+    /// <inheritdoc />
+    public async Task<SinkHealth> CheckHealthAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await _producer.GetEventHubPropertiesAsync(cancellationToken);
+            return new SinkHealth(SinkHealthStatus.Healthy);
+        }
+        catch (Exception ex)
+        {
+            return new SinkHealth(SinkHealthStatus.Unhealthy, ex.Message);
+        }
     }
 
     /// <inheritdoc />
