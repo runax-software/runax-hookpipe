@@ -32,7 +32,7 @@ public static class SinkHealthEndpoints
             var body = results.ToDictionary(
                 result => result.Id,
                 result => new
-                    { status = result.Health.Status.ToString().ToLowerInvariant(), detail = result.Health.Detail });
+                { status = result.Health.Status.ToString().ToLowerInvariant(), detail = result.Health.Detail });
 
             return AreAllSinksReady(results)
                 ? Results.Ok(body)
