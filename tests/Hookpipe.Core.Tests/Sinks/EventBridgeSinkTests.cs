@@ -6,6 +6,7 @@ using NSubstitute;
 
 namespace Hookpipe.Core.Tests.Sinks;
 
+[Collection("AWS")]
 public sealed class EventBridgeSinkTests : IDisposable
 {
     private const string EnvVar = "TEST_EVENTBRIDGE_BUS";

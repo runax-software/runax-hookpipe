@@ -6,6 +6,7 @@ using NSubstitute;
 
 namespace Hookpipe.Core.Tests.Sinks;
 
+[Collection("AWS")]
 public sealed class SqsSinkTests : IDisposable
 {
     private const string EnvVar = "TEST_SQS_QUEUE_URL";

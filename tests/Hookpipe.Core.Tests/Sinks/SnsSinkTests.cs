@@ -6,6 +6,7 @@ using NSubstitute;
 
 namespace Hookpipe.Core.Tests.Sinks;
 
+[Collection("AWS")]
 public sealed class SnsSinkTests : IDisposable
 {
     private const string EnvVar = "TEST_SNS_TOPIC_ARN";
