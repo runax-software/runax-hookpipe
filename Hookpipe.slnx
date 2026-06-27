@@ -1,0 +1,12 @@
+<Solution>
+  <Configurations>
+    <Platform Name="Any CPU" />
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Folder Name="/Tests/">
+    <Project Path="tests/Hookpipe.Core.Tests/Hookpipe.Core.Tests.csproj" />
+  </Folder>
+  <Project Path="src/Hookpipe.API/Hookpipe.API.csproj" />
+  <Project Path="src/Hookpipe.Core/Hookpipe.Core.csproj" />
+</Solution>

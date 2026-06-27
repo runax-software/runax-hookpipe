@@ -20,7 +20,7 @@ public sealed class KafkaSinkIntegrationTests : IAsyncLifetime, IDisposable
     private readonly string _topic = $"hookpipe-test-{Guid.NewGuid():N}";
     private KafkaSink _sink = null!;
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         Environment.SetEnvironmentVariable("TEST_KAFKA_BROKERS", Brokers);
 
@@ -54,7 +54,7 @@ public sealed class KafkaSinkIntegrationTests : IAsyncLifetime, IDisposable
         _sink = KafkaSink.Create(sinkConfig, loggerFactory.CreateLogger<KafkaSink>());
     }
 
-    public Task DisposeAsync() => Task.CompletedTask;
+    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 
     public void Dispose()
     {

@@ -24,7 +24,7 @@ public sealed class RabbitMqSinkIntegrationTests : IAsyncLifetime
     private IConnection _consumerConnection = null!;
     private IChannel _consumerChannel = null!;
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         var url = Environment.GetEnvironmentVariable("RABBITMQ_URL") ?? "amqp://guest:guest@localhost:5672";
         Environment.SetEnvironmentVariable("TEST_RABBITMQ_URL", url);
@@ -53,7 +53,7 @@ public sealed class RabbitMqSinkIntegrationTests : IAsyncLifetime
         await _consumerChannel.QueueBindAsync(QueueName, Exchange, RoutingKey);
     }
 
-    public async Task DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         await _sink.DisposeAsync();
         await _consumerChannel.CloseAsync();

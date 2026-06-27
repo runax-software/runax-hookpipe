@@ -26,7 +26,7 @@ public sealed class EventBridgeSinkIntegrationTests : IAsyncLifetime, IDisposabl
     private IAmazonEventBridge _client = null!;
     private string _busName = null!;
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         Environment.SetEnvironmentVariable(ServiceUrlEnv, ServiceUrl);
         Environment.SetEnvironmentVariable(RegionEnv, Region);
@@ -64,7 +64,7 @@ public sealed class EventBridgeSinkIntegrationTests : IAsyncLifetime, IDisposabl
         _sink = EventBridgeSink.Create(sinkConfig, loggerFactory.CreateLogger<EventBridgeSink>());
     }
 
-    public async Task DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         await _client.DeleteEventBusAsync(new DeleteEventBusRequest { Name = _busName });
     }

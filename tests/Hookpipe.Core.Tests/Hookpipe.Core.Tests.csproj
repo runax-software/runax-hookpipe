@@ -1,5 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\..\src\Hookpipe.Core\Hookpipe.Core.csproj" />
     <ProjectReference Include="..\..\src\Hookpipe.API\Hookpipe.API.csproj" />

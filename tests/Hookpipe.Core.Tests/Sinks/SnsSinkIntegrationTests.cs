@@ -30,7 +30,7 @@ public sealed class SnsSinkIntegrationTests : IAsyncLifetime, IDisposable
     private string _topicArn = null!;
     private string _queueUrl = null!;
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         Environment.SetEnvironmentVariable(ServiceUrlEnv, ServiceUrl);
         Environment.SetEnvironmentVariable(RegionEnv, Region);
@@ -82,7 +82,7 @@ public sealed class SnsSinkIntegrationTests : IAsyncLifetime, IDisposable
         _sink = SnsSink.Create(sinkConfig, loggerFactory.CreateLogger<SnsSink>());
     }
 
-    public async Task DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         await _sqsClient.DeleteQueueAsync(_queueUrl);
     }

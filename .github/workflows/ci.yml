@@ -19,7 +19,7 @@ jobs:
           warnings-as-errors: 'true'
 
       - name: Unit tests
-        run: dotnet test --no-build --filter "Category!=Integration" --verbosity normal
+        run: dotnet test --no-build --verbosity normal -- --filter-not-trait "Category=Integration"
 
       - name: Format check
         run: dotnet format --verify-no-changes
@@ -114,7 +114,7 @@ jobs:
           AWS_REGION: us-east-1
           PUBSUB_EMULATOR_HOST: localhost:8085
           GOOGLE_CLOUD_PROJECT: test-project
-        run: dotnet test --no-build --filter "Category=Integration&FullyQualifiedName!~ServiceBusSinkIntegrationTests&FullyQualifiedName!~EventHubSinkIntegrationTests" --verbosity normal
+        run: dotnet test --no-build --verbosity normal -- --filter-trait "Category=Integration" --filter-not-class "*ServiceBusSinkIntegrationTests" --filter-not-class "*EventHubSinkIntegrationTests"
 
   azure-integration-tests:
     runs-on: ubuntu-latest
@@ -127,7 +127,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: '8.0.x'
+          dotnet-version: '10.0.x'
 
       - name: Start Azure emulators and build
         shell: bash
@@ -147,7 +147,7 @@ jobs:
           wait "$build_pid"
 
       - name: Service Bus and Event Hub integration tests
-        run: dotnet test tests/Hookpipe.Core.Tests/Hookpipe.Core.Tests.csproj --no-build --filter "FullyQualifiedName~ServiceBusSinkIntegrationTests|FullyQualifiedName~EventHubSinkIntegrationTests" --verbosity normal
+        run: dotnet test --project tests/Hookpipe.Core.Tests/Hookpipe.Core.Tests.csproj --no-build --verbosity normal -- --filter-class "*ServiceBusSinkIntegrationTests" --filter-class "*EventHubSinkIntegrationTests"
 
       - name: Azure emulator logs
         if: failure()

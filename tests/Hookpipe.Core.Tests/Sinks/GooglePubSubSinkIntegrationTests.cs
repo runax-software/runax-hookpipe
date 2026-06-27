@@ -27,7 +27,7 @@ public sealed class GooglePubSubSinkIntegrationTests : IAsyncLifetime
     private GooglePubSubSink _sink = null!;
     private SubscriberClient _subscriber = null!;
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         Environment.SetEnvironmentVariable("PUBSUB_EMULATOR_HOST", EmulatorHost);
         Environment.SetEnvironmentVariable(ProjectEnv, ProjectId);
@@ -74,7 +74,7 @@ public sealed class GooglePubSubSinkIntegrationTests : IAsyncLifetime
         }.BuildAsync();
     }
 
-    public async Task DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         await _sink.DisposeAsync();
         await _subscriber.StopAsync(CancellationToken.None);

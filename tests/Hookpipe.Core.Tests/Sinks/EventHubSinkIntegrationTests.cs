@@ -25,7 +25,7 @@ public sealed class EventHubSinkIntegrationTests : IAsyncLifetime
     private EventHubSink _sink = null!;
     private EventHubConsumerClient _consumer = null!;
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         Environment.SetEnvironmentVariable(ConnectionStringEnv, ConnectionString);
 
@@ -47,7 +47,7 @@ public sealed class EventHubSinkIntegrationTests : IAsyncLifetime
         _sink = EventHubSink.Create(sinkConfig, loggerFactory.CreateLogger<EventHubSink>());
     }
 
-    public async Task DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         await _sink.DisposeAsync();
         await _consumer.CloseAsync();

@@ -24,7 +24,7 @@ public sealed class ServiceBusSinkIntegrationTests : IAsyncLifetime
     private ServiceBusClient _readerClient = null!;
     private ServiceBusReceiver _receiver = null!;
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         Environment.SetEnvironmentVariable(ConnectionStringEnv, ConnectionString);
 
@@ -47,7 +47,7 @@ public sealed class ServiceBusSinkIntegrationTests : IAsyncLifetime
         _sink = ServiceBusSink.Create(sinkConfig, loggerFactory.CreateLogger<ServiceBusSink>());
     }
 
-    public async Task DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         await _sink.DisposeAsync();
         await _receiver.DisposeAsync();

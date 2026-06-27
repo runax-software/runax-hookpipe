@@ -27,7 +27,7 @@ public sealed class SqsSinkIntegrationTests : IAsyncLifetime, IDisposable
     private IAmazonSQS _reader = null!;
     private string _queueUrl = null!;
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         Environment.SetEnvironmentVariable(ServiceUrlEnv, ServiceUrl);
         Environment.SetEnvironmentVariable(RegionEnv, Region);
@@ -64,7 +64,7 @@ public sealed class SqsSinkIntegrationTests : IAsyncLifetime, IDisposable
         _sink = SqsSink.Create(sinkConfig, loggerFactory.CreateLogger<SqsSink>());
     }
 
-    public async Task DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         await _reader.DeleteQueueAsync(_queueUrl);
     }
