@@ -12,6 +12,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="Runax.Hookpipe.Api.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Runax.Hookpipe\Runax.Hookpipe.csproj" />
   </ItemGroup>
 

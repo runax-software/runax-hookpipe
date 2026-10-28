@@ -1,4 +1,5 @@
 using Prometheus;
+using Runax.Hookpipe.Api;
 using Runax.Hookpipe.Hosting;
 using Serilog;
 using Serilog.Sinks.Grafana.Loki;
@@ -25,6 +26,7 @@ builder.Host.UseSerilog((context, config) =>
 
 var configPath = Environment.GetEnvironmentVariable("HOOKPIPE_CONFIG_PATH") ?? "config/hookpipe.yaml";
 builder.Services.AddHookpipe(hookpipe => hookpipe.LoadYaml(configPath));
+builder.Services.AddHostedService<HookpipeMetricsExporter>();
 
 var app = builder.Build();
 

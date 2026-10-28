@@ -87,6 +87,68 @@ public sealed class ApiMetricsTests
             ("sink_id", sinkId));
     }
 
+    [Fact]
+    public async Task Metrics_ExportEveryHookpipeMetricWithItsNameAndType()
+    {
+        var suffix = Guid.NewGuid().ToString("N");
+        var tokenEnv = $"HOOKPIPE_TEST_TOKEN_{suffix}";
+        var urlEnv = $"HOOKPIPE_TEST_HTTP_RELAY_URL_{suffix}";
+        var yaml = $$"""
+            endpoints:
+              - id: secured-{{suffix}}
+                path: /secured-{{suffix}}
+                methods:
+                  - POST
+                validation:
+                  auth:
+                    type: bearer
+                    token_env: {{tokenEnv}}
+                sink: stdout-dev
+              - id: broken-{{suffix}}
+                path: /broken-{{suffix}}
+                methods:
+                  - POST
+                sink: http-fail
+            sinks:
+              - id: stdout-dev
+                type: stdout
+              - id: http-fail
+                type: http
+                settings:
+                  url_env: {{urlEnv}}
+                  timeout_seconds: "1"
+            """;
+
+        using var host = new TestApiHost(yaml, new Dictionary<string, string?>
+        {
+            [tokenEnv] = "secret-token",
+            [urlEnv] = "http://127.0.0.1:1/fail",
+        });
+        var client = host.Factory.CreateClient();
+
+        var unauthorized = await client.PostAsync($"/secured-{suffix}", new StringContent("{}"));
+        var authorized = new HttpRequestMessage(HttpMethod.Post, $"/secured-{suffix}") { Content = new StringContent("{}") };
+        authorized.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", "secret-token");
+        var accepted = await client.SendAsync(authorized);
+        var failed = await client.PostAsync($"/broken-{suffix}", new StringContent("{}"));
+
+        unauthorized.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        accepted.StatusCode.Should().Be(HttpStatusCode.Accepted);
+        failed.StatusCode.Should().Be(HttpStatusCode.InternalServerError);
+
+        var metrics = await client.GetStringAsync("/metrics");
+        metrics.Should().Contain("# TYPE hookpipe_requests_total counter");
+        metrics.Should().Contain("# TYPE hookpipe_messages_produced_total counter");
+        metrics.Should().Contain("# TYPE hookpipe_sink_errors_total counter");
+        metrics.Should().Contain("# TYPE hookpipe_validation_failures_total counter");
+        metrics.Should().Contain("# TYPE hookpipe_request_duration_seconds histogram");
+        metrics.Should().NotContain("runax_hookpipe_");
+        AssertContainsMetric(
+            metrics, "hookpipe_validation_failures_total", ("endpoint_id", $"secured-{suffix}"), ("validator_type", "bearer"));
+        AssertContainsMetric(
+            metrics, "hookpipe_requests_total", ("endpoint_id", $"secured-{suffix}"), ("status_code", "401"));
+    }
+
     private static void AssertContainsMetric(
         string metrics,
         string metricName,
