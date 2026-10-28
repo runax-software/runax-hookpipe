@@ -140,8 +140,8 @@ sinks:
 
 ## Creating a custom sink
 
-1. Create a class in `src/Hookpipe.Core/Sinks/` implementing `ISink`
-2. Add a case to the `sinkConfig.Type switch` in `Program.cs`
+1. Create a class in `src/Runax.Hookpipe/Sinks/` implementing `ISink`
+2. Add a case to `SinkFactory.CreateAllAsync()`
 3. Add NuGet packages to `Directory.Packages.props`
 4. Add XML docs
 5. Add tests

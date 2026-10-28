@@ -26,8 +26,11 @@ External service (GitHub, Stripe, Coolify, etc.)
 docker run -p 8080:8080 \
   -v ./config:/app/config \
   -e RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672 \
-  ghcr.io/runax-software/hookpipe:latest
+  ghcr.io/runax-software/runax-hookpipe:latest
 ```
+
+Releases up to 0.2.1 were published as `ghcr.io/runax-software/hookpipe`. The next release is the
+first under the new name.
 
 ### From source
 
@@ -39,8 +42,21 @@ cp .env.example .env
 # Start RabbitMQ + Kafka (optional)
 docker compose up -d
 
-dotnet run --project src/Hookpipe.API
+dotnet run --project src/Runax.Hookpipe.Api
 ```
+
+### In your own ASP.NET Core app
+
+The engine is the `Runax.Hookpipe` library, which the service above is built on:
+
+```csharp
+builder.Services.AddHookpipe(hookpipe => hookpipe.LoadYaml("config/hookpipe.yaml"));
+// ...
+app.MapHookpipe();
+app.MapHookpipeHealth();
+```
+
+The package isn't on NuGet yet; reference `src/Runax.Hookpipe` until it is.
 
 ### Test
 

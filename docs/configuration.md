@@ -229,7 +229,7 @@ If no `retry` block is defined, the sink produces once with no retries (current 
 | `HOOKPIPE_CONFIG_PATH`                    | Path to YAML config file                            | `config/hookpipe.yaml` |
 | `HOOKPIPE_MAX_BODY_SIZE_MB`               | Max request body size in MB. Returns 413 if exceeded | `~28.6` (Kestrel default) |
 | `Logging__LogLevel__Default`              | Default log level                                   | `Information`          |
-| `Logging__LogLevel__Hookpipe`             | Hookpipe log level                                  | `Information`          |
+| `Logging__LogLevel__Runax`                | Hookpipe log level (`Runax.*` categories)           | `Information`          |
 | `Logging__LogLevel__Microsoft.AspNetCore` | ASP.NET log level                                   | `Warning`              |
 | `RABBITMQ_URL`                            | RabbitMQ connection string (if using RabbitMQ sink) | —                      |
 | `KAFKA_BROKERS`                           | Kafka broker list (if using Kafka sink)             | —                      |
