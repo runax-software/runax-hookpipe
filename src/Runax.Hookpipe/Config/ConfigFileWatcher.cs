@@ -13,6 +13,12 @@ public sealed class ConfigFileWatcher : IDisposable
     private readonly ILogger<ConfigFileWatcher> _logger;
     private Timer? _debounceTimer;
 
+    /// <summary>
+    /// Starts watching the config file. Changes are debounced by 500 ms before reloading.
+    /// </summary>
+    /// <param name="configPath">Path to the YAML config file to watch.</param>
+    /// <param name="configProvider">The provider to reload when the file changes.</param>
+    /// <param name="logger">Logger for this watcher.</param>
     public ConfigFileWatcher(string configPath, ConfigProvider configProvider, ILogger<ConfigFileWatcher> logger)
     {
         _configProvider = configProvider;

@@ -14,6 +14,9 @@ namespace Runax.Hookpipe.Sinks;
 /// </summary>
 public sealed class SnsSink : ISink, ISinkHealthCheck, IDisposable
 {
+    /// <summary>
+    /// The sink type identifier.
+    /// </summary>
     public const string TypeName = "sns";
 
     private readonly ILogger<SnsSink> _logger;
@@ -29,8 +32,18 @@ public sealed class SnsSink : ISink, ISinkHealthCheck, IDisposable
         _sinkId = sinkId;
     }
 
+    /// <inheritdoc />
     public string Type => TypeName;
 
+    /// <summary>
+    /// Creates a new SNS sink from the given config settings.
+    /// </summary>
+    /// <param name="sinkConfig">Sink configuration containing topic ARN and region settings.</param>
+    /// <param name="logger">Logger for this sink instance.</param>
+    /// <returns>A configured <see cref="SnsSink"/> ready to publish messages.</returns>
+    /// <exception cref="InvalidOperationException">
+    /// Thrown when the topic ARN env var is not set.
+    /// </exception>
     public static SnsSink Create(SinkConfig sinkConfig, ILogger<SnsSink> logger)
     {
         var topicArn = SinkHelper.RequireEnvVar(sinkConfig, "topic_arn_env", "SNS_TOPIC_ARN");
@@ -60,7 +73,7 @@ public sealed class SnsSink : ISink, ISinkHealthCheck, IDisposable
         return new SnsSink(logger, client, topicArn, sinkConfig.Id);
     }
 
-
+    /// <inheritdoc />
     public async Task ProduceAsync(MessageEnvelope message, CancellationToken cancellationToken = default)
     {
         var request = new PublishRequest
@@ -80,6 +93,7 @@ public sealed class SnsSink : ISink, ISinkHealthCheck, IDisposable
             _sinkId, message.Id, response.MessageId);
     }
 
+    /// <inheritdoc />
     public async Task<SinkHealth> CheckHealthAsync(CancellationToken cancellationToken = default)
     {
         try
@@ -93,5 +107,6 @@ public sealed class SnsSink : ISink, ISinkHealthCheck, IDisposable
         }
     }
 
+    /// <inheritdoc />
     public void Dispose() => _client.Dispose();
 }

@@ -16,6 +16,9 @@ public sealed class StripeSignatureValidator(ILogger<StripeSignatureValidator> l
     private static readonly Encoding Utf8 = Encoding.UTF8;
     private const int DefaultToleranceSeconds = 300; // 5 minutes
 
+    /// <summary>
+    /// The validator type identifier.
+    /// </summary>
     public const string TypeName = "stripe-v1";
 
     /// <inheritdoc />

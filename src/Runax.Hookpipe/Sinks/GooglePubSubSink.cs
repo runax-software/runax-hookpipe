@@ -37,6 +37,15 @@ public sealed class GooglePubSubSink : ISink, ISinkHealthCheck, IAsyncDisposable
     /// <inheritdoc />
     public string Type => TypeName;
 
+    /// <summary>
+    /// Creates a new Google Pub/Sub sink from the given config settings.
+    /// </summary>
+    /// <param name="sinkConfig">Sink configuration containing project and topic settings.</param>
+    /// <param name="logger">Logger for this sink instance.</param>
+    /// <returns>A configured <see cref="GooglePubSubSink"/> ready to publish messages.</returns>
+    /// <exception cref="InvalidOperationException">
+    /// Thrown when the project ID or topic ID env var is not set.
+    /// </exception>
     public static async Task<GooglePubSubSink> CreateAsync(SinkConfig sinkConfig, ILogger<GooglePubSubSink> logger)
     {
         var projectId = SinkHelper.RequireEnvVar(sinkConfig, "project_id_env", "GOOGLE_CLOUD_PROJECT");
@@ -100,6 +109,7 @@ public sealed class GooglePubSubSink : ISink, ISinkHealthCheck, IAsyncDisposable
         }
     }
 
+    /// <inheritdoc />
     public async ValueTask DisposeAsync()
     {
         _logger.LogDebug("[Hookpipe.Sink:google-pubsub:{SinkId}] Shutting down publisher", _sinkId);
