@@ -36,7 +36,7 @@ app.UseHttpMetrics();
 app.MapMetrics();
 
 var loggerFactory = app.Services.GetRequiredService<ILoggerFactory>();
-var startupLogger = loggerFactory.CreateLogger("Hookpipe.Startup");
+var startupLogger = loggerFactory.CreateLogger("Runax.Hookpipe.Startup");
 var configPath = Environment.GetEnvironmentVariable("HOOKPIPE_CONFIG_PATH") ?? "config/hookpipe.yaml";
 
 var configProvider = new ConfigProvider(configPath, loggerFactory.CreateLogger<ConfigProvider>());
@@ -85,7 +85,7 @@ foreach (var endpoint in configProvider.Current.Endpoints)
         endpointId: endpoint.Id,
         regex: regex,
         paramNames: paramNames,
-        logger: loggerFactory.CreateLogger($"Hookpipe.Endpoint.{endpoint.Id}"),
+        logger: loggerFactory.CreateLogger($"Runax.Hookpipe.Endpoint.{endpoint.Id}"),
         configProvider: configProvider,
         sinks: sinks,
         retryPipelines: retryPipelines,
@@ -105,7 +105,7 @@ app.MapSinkHealthChecks(sinks);
 
 app.Lifetime.ApplicationStopping.Register(() =>
 {
-    var shutdownLogger = loggerFactory.CreateLogger("Hookpipe.Shutdown");
+    var shutdownLogger = loggerFactory.CreateLogger("Runax.Hookpipe.Shutdown");
 
     fileWatcher.Dispose();
     shutdownLogger.LogInformation("[Hookpipe.Shutdown] Stopped config file watcher");

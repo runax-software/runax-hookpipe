@@ -73,7 +73,7 @@ public static class SinkFactory
         foreach (var sinkConfig in config.Sinks)
         {
             if (sinkConfig.Retry is null) continue;
-            var logger = loggerFactory.CreateLogger($"Hookpipe.Retry.{sinkConfig.Id}");
+            var logger = loggerFactory.CreateLogger($"Runax.Hookpipe.Retry.{sinkConfig.Id}");
 
             pipelines[sinkConfig.Id] = new ResiliencePipelineBuilder()
                 .AddRetry(new RetryStrategyOptions
