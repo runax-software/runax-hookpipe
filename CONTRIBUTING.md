@@ -4,7 +4,7 @@ Thanks for your interest in contributing! Here's how to get started.
 
 ## Prerequisites
 
-- [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
+- [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
 - A code editor (Rider, VS Code, Visual Studio)
 
 ## Getting started
@@ -22,23 +22,27 @@ Thanks for your interest in contributing! Here's how to get started.
    ```
 4. Run with the sample config
    ```bash
-   dotnet run --project src/Hookpipe.API
+   dotnet run --project src/Runax.Hookpipe.Api
    ```
 
 ## Project structure
 
 ```
 src/
-  Hookpipe.API/            # HTTP host and request handler
-  Hookpipe.Core/           # Config, models, sinks, validators
+  Runax.Hookpipe/          # The library (NuGet package): config, models, sinks, validators
     Config/                # YAML config models and loader
+    Diagnostics/           # Metrics on the Runax.Hookpipe meter
+    Hosting/               # AddHookpipe, MapHookpipe, MapHookpipeHealth
     Models/                # Message envelope
     Services/              # Envelope builder
     Sinks/                 # ISink interface and all implementations
     Validation/            # IValidator interface and all implementations
+  Runax.Hookpipe.Api/      # The self-hosted service: Serilog, /metrics, /health, config path
 config/
   hookpipe.yaml            # Sample configuration
-tests/                     # Test projects
+tests/
+  Runax.Hookpipe.Tests/      # Library tests
+  Runax.Hookpipe.Api.Tests/  # Service tests (routing and /metrics through the real host)
 ```
 
 ## Making changes
@@ -66,17 +70,17 @@ tests/                     # Test projects
 
 ## Adding a new sink
 
-1. Create a new class in `Hookpipe.Core/Sinks/`
+1. Create a new class in `src/Runax.Hookpipe/Sinks/`
 2. Implement the `ISink` interface
-3. Register it in `Program.cs`
+3. Add a case to `SinkFactory.CreateAllAsync()`
 4. Add a sample config entry in `config/hookpipe.yaml`
 5. Add tests
 
 ## Adding a new validator
 
-1. Create a new class in `Hookpipe.Core/Validation/`
+1. Create a new class in `src/Runax.Hookpipe/Validation/`
 2. Implement the `IValidator` interface
-3. Register it in `Program.cs`
+3. Add it to `ValidatorFactory.CreateAll()`
 4. Add tests
 
 ## Code style

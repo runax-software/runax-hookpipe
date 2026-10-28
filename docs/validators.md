@@ -120,8 +120,8 @@ ALLOWED_IPS=192.168.1.0/24,10.0.0.1,140.82.112.0/20
 
 ## Creating a custom validator
 
-1. Create a class in `src/Hookpipe.Core/Validation/` implementing `IValidator`
-2. Register it in the `validators` dictionary in `Program.cs`
+1. Create a class in `src/Runax.Hookpipe/Validation/` implementing `IValidator`
+2. Add it to `ValidatorFactory.CreateAll()`
 3. Always reset `Request.Body.Position = 0` after reading the body
 4. Use `CryptographicOperations.FixedTimeEquals` for signature comparison
 5. Add XML docs

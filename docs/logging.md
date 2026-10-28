@@ -39,7 +39,7 @@ Controlled via environment variables:
 
 ```bash
 Serilog__MinimumLevel__Default=Information
-Serilog__MinimumLevel__Override__Hookpipe=Debug
+Serilog__MinimumLevel__Override__Runax=Debug
 Serilog__MinimumLevel__Override__Microsoft.AspNetCore=Warning
 ```
 
@@ -58,5 +58,5 @@ Serilog__MinimumLevel__Override__Microsoft.AspNetCore=Warning
 | `SEQ_API_KEY` | Seq API key | — (optional) |
 | `LOKI_URL` | Grafana Loki URL | — (disabled) |
 | `Serilog__MinimumLevel__Default` | Default log level | `Information` |
-| `Serilog__MinimumLevel__Override__Hookpipe` | Hookpipe log level | inherits default |
+| `Serilog__MinimumLevel__Override__Runax` | Hookpipe log level (`Runax.*` categories) | inherits default |
 | `Serilog__MinimumLevel__Override__Microsoft.AspNetCore` | ASP.NET log level | inherits default |
