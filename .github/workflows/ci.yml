@@ -147,7 +147,7 @@ jobs:
           wait "$build_pid"
 
       - name: Service Bus and Event Hub integration tests
-        run: dotnet test --project tests/Hookpipe.Core.Tests/Hookpipe.Core.Tests.csproj --no-build --verbosity normal -- --filter-class "*ServiceBusSinkIntegrationTests" --filter-class "*EventHubSinkIntegrationTests"
+        run: dotnet test --project tests/Runax.Hookpipe.Tests/Runax.Hookpipe.Tests.csproj --no-build --verbosity normal -- --filter-class "*ServiceBusSinkIntegrationTests" --filter-class "*EventHubSinkIntegrationTests"
 
       - name: Azure emulator logs
         if: failure()
