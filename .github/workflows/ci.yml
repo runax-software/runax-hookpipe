@@ -119,7 +119,9 @@ jobs:
           AWS_REGION: us-east-1
           PUBSUB_EMULATOR_HOST: localhost:8085
           GOOGLE_CLOUD_PROJECT: test-project
-        run: dotnet test --no-build --verbosity normal -- --filter-trait "Category=Integration" --filter-not-class "*ServiceBusSinkIntegrationTests" --filter-not-class "*EventHubSinkIntegrationTests"
+        # Integration tests all live in the library project. Running the whole solution would fail
+        # with exit code 8 ("zero tests ran") on Runax.Hookpipe.Api.Tests, which has none.
+        run: dotnet test --project tests/Runax.Hookpipe.Tests/Runax.Hookpipe.Tests.csproj --no-build --verbosity normal -- --filter-trait "Category=Integration" --filter-not-class "*ServiceBusSinkIntegrationTests" --filter-not-class "*EventHubSinkIntegrationTests"
 
   azure-integration-tests:
     runs-on: ubuntu-latest
