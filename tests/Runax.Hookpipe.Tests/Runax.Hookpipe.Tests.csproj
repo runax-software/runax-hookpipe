@@ -8,4 +8,8 @@
     <ProjectReference Include="..\..\src\Runax.Hookpipe\Runax.Hookpipe.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.TestHost" />
+  </ItemGroup>
+
 </Project>
