@@ -12,4 +12,35 @@
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
   </PropertyGroup>
 
+  <!-- Runax.Hookpipe ships as a NuGet package; Runax.Hookpipe.Api opts out with IsPackable=false. -->
+  <PropertyGroup Label="Packaging">
+    <IsPackable>true</IsPackable>
+    <PackageId>$(MSBuildProjectName)</PackageId>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <PackageReadmeFile Condition="Exists('README.md')">README.md</PackageReadmeFile>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <Authors>Runax Software</Authors>
+    <Company>Runax Software</Company>
+    <Product>Runax.Hookpipe</Product>
+    <PackageTags>webhooks;webhook-gateway;messaging;runax</PackageTags>
+    <PackageProjectUrl>https://github.com/runax-software/runax-hookpipe</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/runax-software/runax-hookpipe</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+  </PropertyGroup>
+
+  <PropertyGroup Label="SourceLink / reproducible builds">
+    <!-- SourceLink ships in the .NET SDK, so no package reference is needed. -->
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <Deterministic>true</Deterministic>
+    <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
+  </PropertyGroup>
+
+  <!-- Pack the per-package README when a project provides one. -->
+  <ItemGroup Condition="Exists('README.md')">
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
 </Project>

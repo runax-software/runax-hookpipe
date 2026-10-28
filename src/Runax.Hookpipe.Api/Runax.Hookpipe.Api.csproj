@@ -2,6 +2,7 @@
 
   <PropertyGroup>
     <NoDefaultLaunchSettingsFile>True</NoDefaultLaunchSettingsFile>
+    <IsPackable>false</IsPackable>
   </PropertyGroup>
 
   <ItemGroup>
