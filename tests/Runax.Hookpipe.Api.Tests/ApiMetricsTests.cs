@@ -3,7 +3,7 @@ using System.Text;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc.Testing;
 
-namespace Runax.Hookpipe.Tests.API;
+namespace Runax.Hookpipe.Api.Tests;
 
 [Collection("API")]
 public sealed class ApiMetricsTests

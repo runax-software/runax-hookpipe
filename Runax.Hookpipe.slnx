@@ -5,6 +5,7 @@
     <Platform Name="x86" />
   </Configurations>
   <Folder Name="/Tests/">
+    <Project Path="tests/Runax.Hookpipe.Api.Tests/Runax.Hookpipe.Api.Tests.csproj" />
     <Project Path="tests/Runax.Hookpipe.Tests/Runax.Hookpipe.Tests.csproj" />
   </Folder>
   <Project Path="src/Runax.Hookpipe.Api/Runax.Hookpipe.Api.csproj" />
