@@ -48,6 +48,38 @@ public sealed class HookpipeHostingTests : IDisposable
     }
 
     [Fact]
+    public async Task MapHookpipe_PathWithParameter_ServesWebhook()
+    {
+        File.WriteAllText(_configPath, """
+            endpoints:
+              - id: ingest
+                path: /ingest/{source}/events
+                methods:
+                  - POST
+                sink: stdout-dev
+                message:
+                  metadata:
+                    source: "{source}"
+            sinks:
+              - id: stdout-dev
+                type: stdout
+            """);
+
+        var builder = WebApplication.CreateBuilder();
+        builder.WebHost.UseTestServer();
+        builder.Services.AddHookpipe(hookpipe => hookpipe.LoadYaml(_configPath, reloadOnChange: false));
+
+        await using var app = builder.Build();
+        app.MapHookpipe();
+        await app.StartAsync();
+
+        var response = await app.GetTestClient().PostAsync(
+            "/ingest/github/events", new StringContent("""{"hello":"params"}""", Encoding.UTF8, "application/json"));
+
+        response.StatusCode.Should().Be(HttpStatusCode.Accepted);
+    }
+
+    [Fact]
     public void AddHookpipe_WithoutConfig_Throws()
     {
         var services = new ServiceCollection();

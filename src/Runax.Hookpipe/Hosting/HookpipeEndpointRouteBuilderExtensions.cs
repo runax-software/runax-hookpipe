@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -34,12 +35,7 @@ public static partial class HookpipeEndpointRouteBuilderExtensions
 
         foreach (var endpoint in runtime.ConfigProvider.Current.Endpoints)
         {
-            var paramNames = new List<string>();
-            var pattern = "^" + PathParamPattern().Replace(Regex.Escape(endpoint.Path), match =>
-            {
-                paramNames.Add(match.Groups[1].Value);
-                return @"([^/]+)";
-            }) + "$";
+            var (pattern, paramNames) = BuildPathPattern(endpoint.Path);
 
             var handler = new WebhookHandler(
                 endpointId: endpoint.Id,
@@ -77,6 +73,28 @@ public static partial class HookpipeEndpointRouteBuilderExtensions
     {
         var runtime = endpoints.ServiceProvider.GetRequiredService<HookpipeRuntime>();
         return endpoints.MapSinkHealthChecks(runtime.Sinks, pattern);
+    }
+
+    /// <summary>
+    /// Builds the regex that extracts path parameter values, e.g. "/ingest/{source}" becomes
+    /// "^/ingest/([^/]+)$". Only the literal text between parameters is escaped; escaping the whole
+    /// path first would turn "{" into "\{" and break the parameter replacement.
+    /// </summary>
+    internal static (string Pattern, List<string> ParamNames) BuildPathPattern(string path)
+    {
+        var pattern = new StringBuilder("^");
+        var paramNames = new List<string>();
+        var literalStart = 0;
+
+        foreach (Match match in PathParamPattern().Matches(path))
+        {
+            pattern.Append(Regex.Escape(path[literalStart..match.Index])).Append("([^/]+)");
+            paramNames.Add(match.Groups[1].Value);
+            literalStart = match.Index + match.Length;
+        }
+
+        pattern.Append(Regex.Escape(path[literalStart..])).Append('$');
+        return (pattern.ToString(), paramNames);
     }
 
     /// <summary>
