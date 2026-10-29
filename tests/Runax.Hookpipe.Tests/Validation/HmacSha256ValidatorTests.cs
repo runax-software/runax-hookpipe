@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using FluentAssertions;
-using Runax.Hookpipe.Config;
+using Runax.Hookpipe.Configuration;
 using Runax.Hookpipe.Validation;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
@@ -9,25 +9,16 @@ using NSubstitute;
 
 namespace Runax.Hookpipe.Tests.Validation;
 
-public sealed class HmacSha256ValidatorTests : IDisposable
+public sealed class HmacSha256ValidatorTests
 {
-    private const string EnvVar = "TEST_HMAC_SECRET";
     private const string Secret = "test-secret-key";
     private readonly HmacSha256Validator _validator = new(Substitute.For<ILogger<HmacSha256Validator>>());
 
-    public void Dispose()
+    private static ValidatorConfiguration MakeConfiguration(string? header = "X-Signature", string? secret = Secret) => new()
     {
-        Environment.SetEnvironmentVariable(EnvVar, null);
-    }
-
-    private static ValidationConfig MakeConfig(string header = "X-Signature") => new()
-    {
-        Signature = new SignatureValidation
-        {
-            Header = header,
-            SecretEnv = EnvVar,
-            Algorithm = "hmac-sha256"
-        }
+        Type = HmacSha256Validator.TypeName,
+        Header = header,
+        Secret = secret,
     };
 
     private static string ComputeSignature(string body, string secret)
@@ -49,12 +40,11 @@ public sealed class HmacSha256ValidatorTests : IDisposable
     [Fact]
     public async Task ValidateAsync_ValidSignature_ReturnsTrue()
     {
-        Environment.SetEnvironmentVariable(EnvVar, Secret);
         const string body = """{"event":"push"}""";
         var signature = ComputeSignature(body, Secret);
         var context = MakeContext(body, "X-Signature", signature);
 
-        var result = await _validator.ValidateAsync(context, MakeConfig());
+        var result = await _validator.ValidateAsync(context, MakeConfiguration());
 
         result.Should().BeTrue();
     }
@@ -62,12 +52,11 @@ public sealed class HmacSha256ValidatorTests : IDisposable
     [Fact]
     public async Task ValidateAsync_ValidSignatureWithPrefix_ReturnsTrue()
     {
-        Environment.SetEnvironmentVariable(EnvVar, Secret);
         const string body = """{"event":"push"}""";
         var signature = "sha256=" + ComputeSignature(body, Secret);
         var context = MakeContext(body, "X-Signature", signature);
 
-        var result = await _validator.ValidateAsync(context, MakeConfig());
+        var result = await _validator.ValidateAsync(context, MakeConfiguration());
 
         result.Should().BeTrue();
     }
@@ -75,11 +64,10 @@ public sealed class HmacSha256ValidatorTests : IDisposable
     [Fact]
     public async Task ValidateAsync_WrongSignature_ReturnsFalse()
     {
-        Environment.SetEnvironmentVariable(EnvVar, Secret);
         const string body = """{"event":"push"}""";
         var context = MakeContext(body, "X-Signature", "sha256=invalidhex");
 
-        var result = await _validator.ValidateAsync(context, MakeConfig());
+        var result = await _validator.ValidateAsync(context, MakeConfiguration());
 
         result.Should().BeFalse();
     }
@@ -87,12 +75,11 @@ public sealed class HmacSha256ValidatorTests : IDisposable
     [Fact]
     public async Task ValidateAsync_TamperedBody_ReturnsFalse()
     {
-        Environment.SetEnvironmentVariable(EnvVar, Secret);
         const string originalBody = """{"event":"push"}""";
         var signature = ComputeSignature(originalBody, Secret);
         var context = MakeContext("""{"event":"tampered"}""", "X-Signature", signature);
 
-        var result = await _validator.ValidateAsync(context, MakeConfig());
+        var result = await _validator.ValidateAsync(context, MakeConfiguration());
 
         result.Should().BeFalse();
     }
@@ -100,33 +87,36 @@ public sealed class HmacSha256ValidatorTests : IDisposable
     [Fact]
     public async Task ValidateAsync_MissingHeader_ReturnsFalse()
     {
-        Environment.SetEnvironmentVariable(EnvVar, Secret);
         var context = new DefaultHttpContext();
         context.Request.Body = new MemoryStream(Encoding.UTF8.GetBytes("body"));
 
-        var result = await _validator.ValidateAsync(context, MakeConfig());
+        var result = await _validator.ValidateAsync(context, MakeConfiguration());
 
         result.Should().BeFalse();
     }
 
-    [Fact]
-    public async Task ValidateAsync_EnvVarNotSet_ReturnsFalse()
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    public async Task ValidateAsync_SecretNotConfigured_ReturnsFalse(string? secret)
     {
         const string body = """{"event":"push"}""";
-        var context = MakeContext(body, "X-Signature", "somesig");
+        var context = MakeContext(body, "X-Signature", ComputeSignature(body, Secret));
 
-        var result = await _validator.ValidateAsync(context, MakeConfig());
+        var result = await _validator.ValidateAsync(context, MakeConfiguration(secret: secret));
 
         result.Should().BeFalse();
     }
 
-    [Fact]
-    public async Task ValidateAsync_NullSignatureConfig_ReturnsFalse()
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    public async Task ValidateAsync_HeaderNotConfigured_ReturnsFalse(string? header)
     {
-        var config = new ValidationConfig { Signature = null };
-        var context = new DefaultHttpContext();
+        const string body = """{"event":"push"}""";
+        var context = MakeContext(body, "X-Signature", ComputeSignature(body, Secret));
 
-        var result = await _validator.ValidateAsync(context, config);
+        var result = await _validator.ValidateAsync(context, MakeConfiguration(header: header));
 
         result.Should().BeFalse();
     }
@@ -134,12 +124,11 @@ public sealed class HmacSha256ValidatorTests : IDisposable
     [Fact]
     public async Task ValidateAsync_BodyPositionResetAfterValidation()
     {
-        Environment.SetEnvironmentVariable(EnvVar, Secret);
         const string body = """{"event":"push"}""";
         var signature = ComputeSignature(body, Secret);
         var context = MakeContext(body, "X-Signature", signature);
 
-        await _validator.ValidateAsync(context, MakeConfig());
+        await _validator.ValidateAsync(context, MakeConfiguration());
 
         context.Request.Body.Position.Should().Be(0);
     }

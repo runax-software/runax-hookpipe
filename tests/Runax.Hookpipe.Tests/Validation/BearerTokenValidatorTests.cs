@@ -1,5 +1,5 @@
 using FluentAssertions;
-using Runax.Hookpipe.Config;
+using Runax.Hookpipe.Configuration;
 using Runax.Hookpipe.Validation;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
@@ -7,19 +7,15 @@ using NSubstitute;
 
 namespace Runax.Hookpipe.Tests.Validation;
 
-public sealed class BearerTokenValidatorTests : IDisposable
+public sealed class BearerTokenValidatorTests
 {
-    private const string EnvVar = "TEST_BEARER_TOKEN";
+    private const string Token = "my-secret";
     private readonly BearerTokenValidator _validator = new(Substitute.For<ILogger<BearerTokenValidator>>());
 
-    public void Dispose()
+    private static ValidatorConfiguration MakeConfiguration(string? token = Token) => new()
     {
-        Environment.SetEnvironmentVariable(EnvVar, null);
-    }
-
-    private static ValidationConfig MakeConfig() => new()
-    {
-        Auth = new AuthValidation { Type = "bearer", TokenEnv = EnvVar }
+        Type = BearerTokenValidator.TypeName,
+        Token = token,
     };
 
     private static HttpContext MakeContext(string? authHeader)
@@ -33,10 +29,9 @@ public sealed class BearerTokenValidatorTests : IDisposable
     [Fact]
     public async Task ValidateAsync_ValidBearerToken_ReturnsTrue()
     {
-        Environment.SetEnvironmentVariable(EnvVar, "my-secret");
         var context = MakeContext("Bearer my-secret");
 
-        var result = await _validator.ValidateAsync(context, MakeConfig());
+        var result = await _validator.ValidateAsync(context, MakeConfiguration());
 
         result.Should().BeTrue();
     }
@@ -44,10 +39,9 @@ public sealed class BearerTokenValidatorTests : IDisposable
     [Fact]
     public async Task ValidateAsync_RawToken_ReturnsTrue()
     {
-        Environment.SetEnvironmentVariable(EnvVar, "my-secret");
         var context = MakeContext("my-secret");
 
-        var result = await _validator.ValidateAsync(context, MakeConfig());
+        var result = await _validator.ValidateAsync(context, MakeConfiguration());
 
         result.Should().BeTrue();
     }
@@ -55,10 +49,9 @@ public sealed class BearerTokenValidatorTests : IDisposable
     [Fact]
     public async Task ValidateAsync_WrongToken_ReturnsFalse()
     {
-        Environment.SetEnvironmentVariable(EnvVar, "my-secret");
         var context = MakeContext("Bearer wrong-token");
 
-        var result = await _validator.ValidateAsync(context, MakeConfig());
+        var result = await _validator.ValidateAsync(context, MakeConfiguration());
 
         result.Should().BeFalse();
     }
@@ -66,31 +59,21 @@ public sealed class BearerTokenValidatorTests : IDisposable
     [Fact]
     public async Task ValidateAsync_MissingHeader_ReturnsFalse()
     {
-        Environment.SetEnvironmentVariable(EnvVar, "my-secret");
         var context = MakeContext(null);
 
-        var result = await _validator.ValidateAsync(context, MakeConfig());
+        var result = await _validator.ValidateAsync(context, MakeConfiguration());
 
         result.Should().BeFalse();
     }
 
-    [Fact]
-    public async Task ValidateAsync_EnvVarNotSet_ReturnsFalse()
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    public async Task ValidateAsync_TokenNotConfigured_ReturnsFalse(string? token)
     {
         var context = MakeContext("Bearer my-secret");
 
-        var result = await _validator.ValidateAsync(context, MakeConfig());
-
-        result.Should().BeFalse();
-    }
-
-    [Fact]
-    public async Task ValidateAsync_NullAuthConfig_ReturnsFalse()
-    {
-        var config = new ValidationConfig { Auth = null };
-        var context = MakeContext("Bearer my-secret");
-
-        var result = await _validator.ValidateAsync(context, config);
+        var result = await _validator.ValidateAsync(context, MakeConfiguration(token));
 
         result.Should().BeFalse();
     }
@@ -98,10 +81,9 @@ public sealed class BearerTokenValidatorTests : IDisposable
     [Fact]
     public async Task ValidateAsync_CaseInsensitiveBearerPrefix_ReturnsTrue()
     {
-        Environment.SetEnvironmentVariable(EnvVar, "my-secret");
         var context = MakeContext("bearer my-secret");
 
-        var result = await _validator.ValidateAsync(context, MakeConfig());
+        var result = await _validator.ValidateAsync(context, MakeConfiguration());
 
         result.Should().BeTrue();
     }
