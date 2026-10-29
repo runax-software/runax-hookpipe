@@ -1,34 +1,32 @@
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Runax.Hookpipe.Config;
-using Runax.Hookpipe.Sinks;
+using Runax.Hookpipe.Configuration;
+using Runax.Hookpipe.Brokers;
 
 namespace Runax.Hookpipe.Hosting;
 
 /// <summary>
-/// Connects sinks and starts the config file watcher when the host starts, and disposes them when
-/// it stops. Hosted services start before the server accepts requests, so sinks are ready by the
-/// first request; a sink that fails to connect stops the host from starting.
+/// Connects every configured broker and starts the configuration file watcher when the host starts, and disposes
+/// them when it stops. Hosted services start before the server accepts requests, so brokers are
+/// ready by the first request; a broker that fails to connect stops the host from starting.
 /// </summary>
 internal sealed class HookpipeHostedService(
     HookpipeOptions options,
     HookpipeRuntime runtime,
     ILoggerFactory loggerFactory) : IHostedService
 {
-    private ConfigFileWatcher? _watcher;
+    private ConfigurationFileWatcher? _watcher;
 
     /// <inheritdoc />
     public async Task StartAsync(CancellationToken cancellationToken)
     {
         if (options.ReloadOnChange)
-        {
-            _watcher = new ConfigFileWatcher(
-                options.ConfigPath, runtime.ConfigProvider, loggerFactory.CreateLogger<ConfigFileWatcher>());
-        }
+            _watcher = new ConfigurationFileWatcher(
+                options.ConfigurationPath, runtime.ConfigurationProvider, loggerFactory.CreateLogger<ConfigurationFileWatcher>());
 
-        var sinks = await SinkFactory.CreateAllAsync(runtime.ConfigProvider.Current, loggerFactory);
-        foreach (var (id, sink) in sinks)
-            runtime.Sinks[id] = sink;
+        var brokers = await BrokerFactory.CreateAllAsync(runtime.ConfigurationProvider.Current, loggerFactory);
+        foreach (var (id, broker) in brokers)
+            runtime.Brokers[id] = broker;
     }
 
     /// <inheritdoc />
@@ -45,14 +43,14 @@ internal sealed class HookpipeHostedService(
         foreach (var (id, rateLimiter) in runtime.RateLimiters)
         {
             rateLimiter.Dispose();
-            shutdownLogger.LogDebug("[Hookpipe.Shutdown] Disposed rate limiter for '{EndpointId}'", id);
+            shutdownLogger.LogDebug("[Hookpipe.Shutdown] Disposed rate limiter for '{WebhookId}'", id);
         }
 
-        foreach (var (id, sink) in runtime.Sinks)
+        foreach (var (id, broker) in runtime.Brokers)
         {
-            shutdownLogger.LogInformation("[Hookpipe.Shutdown] Disposing sink '{SinkId}'", id);
+            shutdownLogger.LogInformation("[Hookpipe.Shutdown] Disposing broker '{BrokerId}'", id);
 
-            switch (sink)
+            switch (broker)
             {
                 case IAsyncDisposable asyncDisposable:
                     await asyncDisposable.DisposeAsync();

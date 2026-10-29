@@ -1,8 +1,8 @@
 namespace Runax.Hookpipe.Hosting;
 
 /// <summary>
-/// Settings captured from <see cref="HookpipeBuilder"/> when Hookpipe is registered.
+/// The configuration source registered by <see cref="HookpipeConfiguratorExtensions.LoadYaml"/>.
 /// </summary>
-/// <param name="ConfigPath">Path to the YAML config file.</param>
-/// <param name="ReloadOnChange">Whether the config file is watched and hot-reloaded.</param>
-internal sealed record HookpipeOptions(string ConfigPath, bool ReloadOnChange);
+/// <param name="ConfigurationPath">Path to the YAML configuration file.</param>
+/// <param name="ReloadOnChange">Whether the configuration file is watched and hot-reloaded.</param>
+internal sealed record HookpipeOptions(string ConfigurationPath, bool ReloadOnChange);
