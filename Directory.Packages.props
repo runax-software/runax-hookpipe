@@ -6,6 +6,7 @@
   <ItemGroup>
     <!-- Config -->
     <PackageVersion Include="StackExchange.Redis" Version="3.0.2-preview" />
+    <PackageVersion Include="JsonPath.Net" Version="3.0.2" />
     <PackageVersion Include="YamlDotNet" Version="17.0.1" />
     <!-- Logging -->
     <PackageVersion Include="Serilog.AspNetCore" Version="10.0.0" />
@@ -16,7 +17,7 @@
     <PackageVersion Include="prometheus-net.AspNetCore" Version="8.2.1" />
     <!-- Resilience -->
     <PackageVersion Include="Polly.Core" Version="8.6.6" />
-    <!-- Sinks -->
+    <!-- Brokers -->
     <PackageVersion Include="Azure.Messaging.EventHubs" Version="5.12.2" />
     <PackageVersion Include="Azure.Messaging.ServiceBus" Version="7.20.1" />
     <PackageVersion Include="AWSSDK.EventBridge" Version="4.0.5.14" />

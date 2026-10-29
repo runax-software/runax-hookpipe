@@ -16,6 +16,7 @@
     <PackageReference Include="AWSSDK.SQS" />
     <PackageReference Include="Confluent.Kafka" />
     <PackageReference Include="Google.Cloud.PubSub.V1" />
+    <PackageReference Include="JsonPath.Net" />
     <PackageReference Include="Polly.Core" />
     <PackageReference Include="StackExchange.Redis" />
     <PackageReference Include="YamlDotNet" />
