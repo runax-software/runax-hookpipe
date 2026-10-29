@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using FluentAssertions;
-using Runax.Hookpipe.Config;
+using Runax.Hookpipe.Configuration;
 using Runax.Hookpipe.Validation;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
@@ -9,25 +9,16 @@ using NSubstitute;
 
 namespace Runax.Hookpipe.Tests.Validation;
 
-public sealed class StripeSignatureValidatorTests : IDisposable
+public sealed class StripeSignatureValidatorTests
 {
-    private const string EnvVar = "TEST_STRIPE_SECRET";
     private const string Secret = "whsec_test_secret";
     private readonly StripeSignatureValidator _validator = new(Substitute.For<ILogger<StripeSignatureValidator>>());
 
-    public void Dispose()
+    private static ValidatorConfiguration MakeConfiguration(string? header = null, string? secret = Secret) => new()
     {
-        Environment.SetEnvironmentVariable(EnvVar, null);
-    }
-
-    private static ValidationConfig MakeConfig(string header = "Stripe-Signature") => new()
-    {
-        Signature = new SignatureValidation
-        {
-            Header = header,
-            SecretEnv = EnvVar,
-            Algorithm = "stripe-v1"
-        }
+        Type = StripeSignatureValidator.TypeName,
+        Header = header,
+        Secret = secret,
     };
 
     private static string ComputeStripeSignature(string body, string secret, long timestamp)
@@ -50,26 +41,50 @@ public sealed class StripeSignatureValidatorTests : IDisposable
     [Fact]
     public async Task ValidateAsync_ValidSignature_ReturnsTrue()
     {
-        Environment.SetEnvironmentVariable(EnvVar, Secret);
         const string body = """{"type":"charge.succeeded"}""";
         var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         var sig = ComputeStripeSignature(body, Secret, timestamp);
         var context = MakeContext(body, "Stripe-Signature", $"t={timestamp},v1={sig}");
 
-        var result = await _validator.ValidateAsync(context, MakeConfig());
+        var result = await _validator.ValidateAsync(context, MakeConfiguration());
 
         result.Should().BeTrue();
     }
 
     [Fact]
+    public async Task ValidateAsync_CustomHeader_ReturnsTrue()
+    {
+        const string body = """{"type":"charge.succeeded"}""";
+        var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        var sig = ComputeStripeSignature(body, Secret, timestamp);
+        var context = MakeContext(body, "X-Stripe-Signature", $"t={timestamp},v1={sig}");
+
+        var result = await _validator.ValidateAsync(context, MakeConfiguration("X-Stripe-Signature"));
+
+        result.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task ValidateAsync_CustomHeaderButDefaultHeaderSent_ReturnsFalse()
+    {
+        const string body = """{"type":"charge.succeeded"}""";
+        var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        var sig = ComputeStripeSignature(body, Secret, timestamp);
+        var context = MakeContext(body, "Stripe-Signature", $"t={timestamp},v1={sig}");
+
+        var result = await _validator.ValidateAsync(context, MakeConfiguration("X-Stripe-Signature"));
+
+        result.Should().BeFalse();
+    }
+
+    [Fact]
     public async Task ValidateAsync_WrongSignature_ReturnsFalse()
     {
-        Environment.SetEnvironmentVariable(EnvVar, Secret);
         const string body = """{"type":"charge.succeeded"}""";
         var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         var context = MakeContext(body, "Stripe-Signature", $"t={timestamp},v1=invalidsignature");
 
-        var result = await _validator.ValidateAsync(context, MakeConfig());
+        var result = await _validator.ValidateAsync(context, MakeConfiguration());
 
         result.Should().BeFalse();
     }
@@ -77,13 +92,12 @@ public sealed class StripeSignatureValidatorTests : IDisposable
     [Fact]
     public async Task ValidateAsync_ExpiredTimestamp_ReturnsFalse()
     {
-        Environment.SetEnvironmentVariable(EnvVar, Secret);
         const string body = """{"type":"charge.succeeded"}""";
         var timestamp = DateTimeOffset.UtcNow.AddMinutes(-10).ToUnixTimeSeconds();
         var sig = ComputeStripeSignature(body, Secret, timestamp);
         var context = MakeContext(body, "Stripe-Signature", $"t={timestamp},v1={sig}");
 
-        var result = await _validator.ValidateAsync(context, MakeConfig());
+        var result = await _validator.ValidateAsync(context, MakeConfiguration());
 
         result.Should().BeFalse();
     }
@@ -91,13 +105,12 @@ public sealed class StripeSignatureValidatorTests : IDisposable
     [Fact]
     public async Task ValidateAsync_TamperedBody_ReturnsFalse()
     {
-        Environment.SetEnvironmentVariable(EnvVar, Secret);
         const string originalBody = """{"type":"charge.succeeded"}""";
         var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         var sig = ComputeStripeSignature(originalBody, Secret, timestamp);
         var context = MakeContext("""{"type":"tampered"}""", "Stripe-Signature", $"t={timestamp},v1={sig}");
 
-        var result = await _validator.ValidateAsync(context, MakeConfig());
+        var result = await _validator.ValidateAsync(context, MakeConfiguration());
 
         result.Should().BeFalse();
     }
@@ -105,11 +118,10 @@ public sealed class StripeSignatureValidatorTests : IDisposable
     [Fact]
     public async Task ValidateAsync_MissingHeader_ReturnsFalse()
     {
-        Environment.SetEnvironmentVariable(EnvVar, Secret);
         var context = new DefaultHttpContext();
         context.Request.Body = new MemoryStream(Encoding.UTF8.GetBytes("body"));
 
-        var result = await _validator.ValidateAsync(context, MakeConfig());
+        var result = await _validator.ValidateAsync(context, MakeConfiguration());
 
         result.Should().BeFalse();
     }
@@ -117,32 +129,24 @@ public sealed class StripeSignatureValidatorTests : IDisposable
     [Fact]
     public async Task ValidateAsync_MalformedHeader_ReturnsFalse()
     {
-        Environment.SetEnvironmentVariable(EnvVar, Secret);
         var context = MakeContext("body", "Stripe-Signature", "not-a-valid-header");
 
-        var result = await _validator.ValidateAsync(context, MakeConfig());
+        var result = await _validator.ValidateAsync(context, MakeConfiguration());
 
         result.Should().BeFalse();
     }
 
-    [Fact]
-    public async Task ValidateAsync_EnvVarNotSet_ReturnsFalse()
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    public async Task ValidateAsync_SecretNotConfigured_ReturnsFalse(string? secret)
     {
         const string body = """{"type":"charge.succeeded"}""";
-        var context = MakeContext(body, "Stripe-Signature", "t=123,v1=abc");
+        var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        var sig = ComputeStripeSignature(body, Secret, timestamp);
+        var context = MakeContext(body, "Stripe-Signature", $"t={timestamp},v1={sig}");
 
-        var result = await _validator.ValidateAsync(context, MakeConfig());
-
-        result.Should().BeFalse();
-    }
-
-    [Fact]
-    public async Task ValidateAsync_NullSignatureConfig_ReturnsFalse()
-    {
-        var config = new ValidationConfig { Signature = null };
-        var context = new DefaultHttpContext();
-
-        var result = await _validator.ValidateAsync(context, config);
+        var result = await _validator.ValidateAsync(context, MakeConfiguration(secret: secret));
 
         result.Should().BeFalse();
     }
@@ -150,13 +154,12 @@ public sealed class StripeSignatureValidatorTests : IDisposable
     [Fact]
     public async Task ValidateAsync_BodyPositionResetAfterValidation()
     {
-        Environment.SetEnvironmentVariable(EnvVar, Secret);
         const string body = """{"type":"charge.succeeded"}""";
         var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         var sig = ComputeStripeSignature(body, Secret, timestamp);
         var context = MakeContext(body, "Stripe-Signature", $"t={timestamp},v1={sig}");
 
-        await _validator.ValidateAsync(context, MakeConfig());
+        await _validator.ValidateAsync(context, MakeConfiguration());
 
         context.Request.Body.Position.Should().Be(0);
     }

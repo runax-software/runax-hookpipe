@@ -1,4 +1,4 @@
-using Runax.Hookpipe.Config;
+using Runax.Hookpipe.Configuration;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using System.Security.Cryptography;
@@ -25,31 +25,24 @@ public sealed class ApiKeyValidator(ILogger<ApiKeyValidator> logger) : IValidato
     public string Type => TypeName;
 
     /// <remarks>
-    /// Requires <see cref="AuthValidation.Type"/> = "api-key".
-    /// The header name is read from <see cref="AuthValidation.Header"/>.
-    /// Returns false if: config.Auth is null, header is not set in config,
-    /// the env var is not set, the header is missing, or the value does not match.
+    /// Reads the key from the header named by <see cref="ValidatorConfiguration.Header"/> and compares it
+    /// with <see cref="ValidatorConfiguration.Key"/>.
+    /// Returns false if: the header or key is not configured, the header is missing, or the value
+    /// does not match.
     /// </remarks>
-    public Task<bool> ValidateAsync(HttpContext context, ValidationConfig config)
+    public Task<bool> ValidateAsync(HttpContext context, ValidatorConfiguration configuration)
     {
-        if (config.Auth is null)
-        {
-            logger.LogDebug("[Hookpipe.Validator:api-key] Skipped: auth config is null");
-            return Task.FromResult(false);
-        }
-
-        var headerName = config.Auth.Header;
+        var headerName = configuration.Header;
         if (string.IsNullOrEmpty(headerName))
         {
             logger.LogDebug("[Hookpipe.Validator:api-key] Failed: 'header' is not configured");
             return Task.FromResult(false);
         }
 
-        var expected = Environment.GetEnvironmentVariable(config.Auth.TokenEnv);
+        var expected = configuration.Key;
         if (string.IsNullOrEmpty(expected))
         {
-            logger.LogDebug("[Hookpipe.Validator:api-key] Failed: env var '{TokenEnv}' is not set",
-                config.Auth.TokenEnv);
+            logger.LogDebug("[Hookpipe.Validator:api-key] Failed: 'key' is not configured");
             return Task.FromResult(false);
         }
 

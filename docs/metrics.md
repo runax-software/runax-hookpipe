@@ -6,11 +6,13 @@ Hookpipe exposes Prometheus metrics at `GET /metrics`.
 
 | Metric | Type | Labels | Description |
 |--------|------|--------|-------------|
-| `hookpipe_requests_total` | counter | endpoint_id, method, status_code | Total webhook requests received |
-| `hookpipe_messages_produced_total` | counter | endpoint_id, sink_id | Messages successfully produced to sinks |
-| `hookpipe_sink_errors_total` | counter | endpoint_id, sink_id | Sink errors (sink not found, produce failed) |
-| `hookpipe_validation_failures_total` | counter | endpoint_id, validator_type | Validation failures (auth/signature rejected) |
-| `hookpipe_request_duration_seconds` | histogram | endpoint_id | Request processing duration |
+| `hookpipe_requests_total` | counter | webhook_id, method, status_code | Total webhook requests received |
+| `hookpipe_messages_published_total` | counter | webhook_id, broker_id | Messages published to brokers |
+| `hookpipe_publish_errors_total` | counter | webhook_id, broker_id | Failed publishes (after retries) |
+| `hookpipe_validation_failures_total` | counter | webhook_id, validator_type | Validation failures (auth/signature rejected) |
+| `hookpipe_request_duration_seconds` | histogram | webhook_id | Request processing duration |
+
+Topics aren't a label: they'd make the label set unbounded.
 
 ## Scrape config
 
@@ -27,7 +29,7 @@ scrape_configs:
 ## Example queries
 
 ```promql
-# Request rate per endpoint
+# Request rate per webhook
 rate(hookpipe_requests_total[5m])
 
 # Error rate
@@ -36,8 +38,8 @@ rate(hookpipe_requests_total{status_code="500"}[5m])
 # Validation failure rate
 rate(hookpipe_validation_failures_total[5m])
 
-# Messages produced per sink
-rate(hookpipe_messages_produced_total[5m])
+# Messages published per broker
+sum by (broker_id) (rate(hookpipe_messages_published_total[5m]))
 
 # P95 request duration
 histogram_quantile(0.95, rate(hookpipe_request_duration_seconds_bucket[5m]))

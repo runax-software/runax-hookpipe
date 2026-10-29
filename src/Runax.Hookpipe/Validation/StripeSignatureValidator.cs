@@ -1,6 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
-using Runax.Hookpipe.Config;
+using Runax.Hookpipe.Configuration;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 
@@ -26,27 +26,20 @@ public sealed class StripeSignatureValidator(ILogger<StripeSignatureValidator> l
 
     /// <inheritdoc />
     /// <remarks>
-    /// Returns false if: config.Signature is null, the secret env var is not set,
+    /// Returns false if: the secret is empty,
     /// the Stripe-Signature header is missing or malformed, the timestamp is too old,
     /// or the computed signature does not match.
     /// </remarks>
-    public async Task<bool> ValidateAsync(HttpContext context, ValidationConfig config)
+    public async Task<bool> ValidateAsync(HttpContext context, ValidatorConfiguration configuration)
     {
-        if (config.Signature is null)
-        {
-            logger.LogDebug("[Hookpipe.Validator:stripe-v1] Skipped: signature config is null");
-            return false;
-        }
-
-        var secret = Environment.GetEnvironmentVariable(config.Signature.SecretEnv);
+        var secret = configuration.Secret;
         if (string.IsNullOrEmpty(secret))
         {
-            logger.LogDebug("[Hookpipe.Validator:stripe-v1] Failed: env var '{SecretEnv}' is not set",
-                config.Signature.SecretEnv);
+            logger.LogDebug("[Hookpipe.Validator:stripe-v1] Failed: 'secret' is not configured");
             return false;
         }
 
-        var header = config.Signature.Header ?? "Stripe-Signature";
+        var header = configuration.Header ?? "Stripe-Signature";
         if (!context.Request.Headers.TryGetValue(header, out var signatureHeader))
         {
             logger.LogDebug("[Hookpipe.Validator:stripe-v1] Failed: header '{Header}' is missing", header);

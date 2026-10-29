@@ -1,6 +1,6 @@
 using Prometheus;
+using Runax.Hookpipe;
 using Runax.Hookpipe.Api;
-using Runax.Hookpipe.Hosting;
 using Serilog;
 using Serilog.Sinks.Grafana.Loki;
 
@@ -9,23 +9,23 @@ var builder = WebApplication.CreateBuilder(args);
 if (int.TryParse(Environment.GetEnvironmentVariable("HOOKPIPE_MAX_BODY_SIZE_MB"), out var maxBodyMb))
     builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = maxBodyMb * 1024 * 1024);
 
-builder.Host.UseSerilog((context, config) =>
+builder.Host.UseSerilog((context, configuration) =>
 {
-    config.ReadFrom.Configuration(context.Configuration).WriteTo.Console();
+    configuration.ReadFrom.Configuration(context.Configuration).WriteTo.Console();
 
     var seqUrl = Environment.GetEnvironmentVariable("SEQ_URL");
     if (!string.IsNullOrEmpty(seqUrl))
     {
         var seqApiKey = Environment.GetEnvironmentVariable("SEQ_API_KEY");
-        config.WriteTo.Seq(seqUrl, apiKey: seqApiKey);
+        configuration.WriteTo.Seq(seqUrl, apiKey: seqApiKey);
     }
 
     var lokiUrl = Environment.GetEnvironmentVariable("LOKI_URL");
-    if (!string.IsNullOrEmpty(lokiUrl)) config.WriteTo.GrafanaLoki(lokiUrl);
+    if (!string.IsNullOrEmpty(lokiUrl)) configuration.WriteTo.GrafanaLoki(lokiUrl);
 });
 
-var configPath = Environment.GetEnvironmentVariable("HOOKPIPE_CONFIG_PATH") ?? "config/hookpipe.yaml";
-builder.Services.AddHookpipe(hookpipe => hookpipe.LoadYaml(configPath));
+var configurationPath = Environment.GetEnvironmentVariable("HOOKPIPE_CONFIG_PATH") ?? "config/hookpipe.yaml";
+builder.Services.AddRunaxHookpipe(hookpipe => hookpipe.LoadYaml(configurationPath));
 builder.Services.AddHostedService<HookpipeMetricsExporter>();
 
 var app = builder.Build();

@@ -1,5 +1,29 @@
 # Changelog
 
+## Unreleased
+
+v2 is a breaking release with no compatibility mode. See [docs/upgrading.md](docs/upgrading.md).
+
+### Breaking
+- **Config format v2.** Files must start with `version: 2`; v1 files are refused at startup with a link to the upgrade guide.
+  - `endpoints` become `webhooks`, a map keyed by ID, served under `server.paths.webhooks` (`/webhooks` by default; `/` keeps v1 URLs).
+  - `sinks` become `brokers` (the connection); webhooks publish to inline targets such as `rabbit:github.push`.
+  - `sink`, `sinks`, and `routing` become `to` or `route` with `when` conditions. A route ends with a rule that has no `when`; there's no implicit fallback.
+  - `validation` becomes `validate`, a list where every validator must pass.
+  - `*_env` keys are replaced by `${VAR}`, `${VAR:-default}`, and `${file:…}` interpolation. A missing variable fails startup.
+  - Durations are written `2s`, `1m`; `backoff_multiplier` becomes `factor` and is now applied.
+  - Unknown keys fail the load, with the config path of every problem.
+- Broker types renamed: `redis-stream` → `redis`, `servicebus` → `azure-servicebus`, `eventhub` → `azure-eventhubs`.
+- `/health/sinks` → `/health/brokers`.
+- 202 body is `{"status":"accepted","webhook_id":…,"message_id":…}`; 500 body error is `publish_failed`.
+- Envelope `endpointId` → `webhookId`; header/attribute `hookpipe.endpoint.id` → `hookpipe.webhook.id`.
+- Metrics: `hookpipe_messages_produced_total` → `hookpipe_messages_published_total`, `hookpipe_sink_errors_total` → `hookpipe_publish_errors_total`, labels `endpoint_id` → `webhook_id` and `sink_id` → `broker_id`.
+
+### Added
+- Routing on the JSON body with RFC 9535 JSONPath, plus header and path-parameter conditions; operators `eq`, `ne`, `in`, `not_in`, `gt`, `gte`, `lt`, `lte`, `contains`, `starts_with`, `ends_with`, `regex`, `exists`, combined with `all`, `any`, and `not`.
+- Retry `backoff` (`constant`, `linear`, `exponential`), `max_delay`, and `jitter`.
+- Reloads that need a restart are logged; a reload whose targets use a broker that isn't running is rejected.
+
 ## v0.2.1
 
 ### Fixed

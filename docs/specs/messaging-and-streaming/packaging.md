@@ -85,7 +85,7 @@ asserts every documented name, so any renaming by the adapter gets caught instea
 ## 11.4 The library API
 
 ```csharp
-builder.Services.AddHookpipe(hookpipe =>
+builder.Services.AddRunaxHookpipe(hookpipe =>
 {
     hookpipe.LoadYaml("hookpipe.yaml", reloadOnChange: true);   // optional, or:
     hookpipe.LoadConfiguration(builder.Configuration.GetSection("Hookpipe"));   // appsettings.json
@@ -129,7 +129,7 @@ app.Run();
   across all of them.
 - **Reloads.** YAML reloads from its file watcher and `IConfiguration` from its change token.
   Anything defined in code is fixed for the life of the process.
-- **`AddHookpipe` may be called only once.**
+- **`AddRunaxHookpipe` may be called only once.**
 
 **Routing**
 
@@ -192,7 +192,7 @@ is acknowledged and dropped. Streams are at-most-once anyway.
 var builder = WebApplication.CreateBuilder(args);
 builder.AddHookpipeServiceDefaults();           // Serilog (console, Seq, Loki), Kestrel body limit
 
-builder.Services.AddHookpipe(hookpipe =>
+builder.Services.AddRunaxHookpipe(hookpipe =>
 {
     hookpipe.LoadYaml(ServicePaths.Config, reloadOnChange: true);    // HOOKPIPE_CONFIG_PATH
     hookpipe.AddAllBrokerTypes();               // service-only: the 8 runax transports + eventbridge

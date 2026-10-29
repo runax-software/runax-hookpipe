@@ -1,31 +1,28 @@
-endpoints:
-  - id: test-ping
-    path: /test/ping
-    methods:
-      - GET
-    sink: stdout-dev
-    message:
-      include_body: false
-      include_headers: true
+version: 2
 
-  - id: test-webhook
-    path: /test/webhook
-    methods:
-      - POST
-    sinks: # Fan-out example
-      - rabbitmq-local
-      - stdout-dev
-    message:
-      include_body: true
-      include_headers: true
-
-sinks:
-  - id: stdout-dev
+brokers:
+  console:
     type: stdout
 
-  - id: rabbitmq-local
+  rabbit:
     type: rabbitmq
     settings:
-      url_env: RABBITMQ_URL
-      exchange: webhooks
-      routing_key: events
+      uri: ${RABBITMQ_URL:-amqp://guest:guest@localhost:5672}
+      exchange_name: webhooks
+
+webhooks:
+  test-ping:                      # GET /webhooks/test/ping
+    path: test/ping
+    methods: [GET]
+    message:
+      body: false
+      headers: true
+    to: console
+
+  test-webhook:                   # POST /webhooks/test-webhook
+    message:
+      headers: true
+    route:
+      - when: { header: X-Event-Type, eq: ping }
+        to: none                  # acknowledge and drop
+      - to: [rabbit:events, console]   # fan-out

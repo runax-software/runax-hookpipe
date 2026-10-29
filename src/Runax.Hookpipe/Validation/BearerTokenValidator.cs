@@ -1,6 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
-using Runax.Hookpipe.Config;
+using Runax.Hookpipe.Configuration;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 
@@ -26,22 +26,15 @@ public sealed class BearerTokenValidator(ILogger<BearerTokenValidator> logger) :
 
     /// <inheritdoc />
     /// <remarks>
-    /// Returns false if: config.Auth is null, the env var is not set,
+    /// Returns false if: the token is not configured,
     /// the Authorization header is missing or empty, or the token does not match.
     /// </remarks>
-    public Task<bool> ValidateAsync(HttpContext context, ValidationConfig config)
+    public Task<bool> ValidateAsync(HttpContext context, ValidatorConfiguration configuration)
     {
-        if (config.Auth is null)
-        {
-            logger.LogDebug("[Hookpipe.Validator:bearer] Skipped: auth config is null");
-            return Task.FromResult(false);
-        }
-
-        var expected = Environment.GetEnvironmentVariable(config.Auth.TokenEnv);
+        var expected = configuration.Token;
         if (string.IsNullOrEmpty(expected))
         {
-            logger.LogDebug("[Hookpipe.Validator:bearer] Failed: env var '{TokenEnv}' is not set",
-                config.Auth.TokenEnv);
+            logger.LogDebug("[Hookpipe.Validator:bearer] Failed: 'token' is not configured");
             return Task.FromResult(false);
         }
 

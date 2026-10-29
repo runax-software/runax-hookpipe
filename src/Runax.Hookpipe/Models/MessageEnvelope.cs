@@ -2,7 +2,7 @@ namespace Runax.Hookpipe.Models;
 
 /// <summary>
 /// Standardized message envelope produced for every webhook received.
-/// This is the payload sent to sinks.
+/// This is the payload published to brokers.
 /// </summary>
 public sealed class MessageEnvelope
 {
@@ -12,9 +12,9 @@ public sealed class MessageEnvelope
     public required string Id { get; init; }
 
     /// <summary>
-    /// ID of the endpoint that received this webhook.
+    /// ID of the webhook that received the request.
     /// </summary>
-    public required string EndpointId { get; init; }
+    public required string WebhookId { get; init; }
 
     /// <summary>
     /// Timestamp when the request was received.
@@ -37,7 +37,7 @@ public sealed class MessageEnvelope
     public required string RemoteAddress { get; set; }
 
     /// <summary>
-    /// Request headers (filtered based on <see cref="Config.MessageConfig"/>).
+    /// Request headers (filtered based on <see cref="Configuration.MessageConfiguration"/>).
     /// </summary>
     public Dictionary<string, string> Headers { get; set; } = [];
 
@@ -47,7 +47,7 @@ public sealed class MessageEnvelope
     public object? Body { get; set; }
 
     /// <summary>
-    /// Static or path-param-derived metadata from endpoint config.
+    /// Static or path-param-derived metadata from the webhook configuration.
     /// </summary>
     public Dictionary<string, string> Metadata { get; set; } = [];
 }

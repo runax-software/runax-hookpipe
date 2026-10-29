@@ -8,7 +8,7 @@ namespace Runax.Hookpipe.Validation;
 public static class ValidatorFactory
 {
     /// <summary>
-    /// All known validator type identifiers. Used by <see cref="Config.ConfigLoader"/> for validation.
+    /// All known validator type identifiers. Used by <see cref="Configuration.ConfigurationLoader"/> for validation.
     /// </summary>
     public static readonly HashSet<string> KnownTypes =
     [
