@@ -45,10 +45,10 @@ Serilog__MinimumLevel__Override__Microsoft.AspNetCore=Warning
 
 | Level | Use |
 |-------|-----|
-| `Debug` | Detailed sink produce messages, internal state |
-| `Information` | Startup, sink connections, request lifecycle |
+| `Debug` | Per-request details: validation, routing, publishes |
+| `Information` | Startup, broker connections, config reloads |
 | `Warning` | Recoverable issues |
-| `Error` | Sink failures, unhandled exceptions |
+| `Error` | Failed publishes, rejected reloads, unhandled exceptions |
 
 ## Environment variables
 

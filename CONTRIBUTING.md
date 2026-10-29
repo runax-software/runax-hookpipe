@@ -29,14 +29,16 @@ Thanks for your interest in contributing! Here's how to get started.
 
 ```
 src/
-  Runax.Hookpipe/          # The library (NuGet package): config, models, sinks, validators
-    Config/                # YAML config models and loader
+  Runax.Hookpipe/          # The library (NuGet package): config, brokers, validators, routing
+    Brokers/               # IBroker, BrokerFactory; one folder per broker type (Kafka/, Aws/Sqs/, ...)
+    Conditions/            # Route conditions and their evaluation
+    Configuration/         # v2 configuration model, strict YAML loader, hot reload
     Diagnostics/           # Metrics on the Runax.Hookpipe meter
-    Hosting/               # AddHookpipe, MapHookpipe, MapHookpipeHealth
+    Hosting/               # Runtime, broker startup and shutdown, retry pipelines
     Models/                # Message envelope
-    Services/              # Envelope builder
-    Sinks/                 # ISink interface and all implementations
     Validation/            # IValidator interface and all implementations
+    Webhooks/              # Request handling, routing, envelope builder
+    *Extensions.cs         # AddRunaxHookpipe, LoadYaml, MapHookpipe, MapHookpipeHealth
   Runax.Hookpipe.Api/      # The self-hosted service: Serilog, /metrics, /health, config path
 config/
   hookpipe.yaml            # Sample configuration
@@ -68,19 +70,19 @@ tests/
    - `docs:` documentation only
 6. Open a pull request against `main`
 
-## Adding a new sink
+## Adding a new broker type
 
-1. Create a new class in `src/Runax.Hookpipe/Sinks/`
-2. Implement the `ISink` interface
-3. Add a case to `SinkFactory.CreateAllAsync()`
-4. Add a sample config entry in `config/hookpipe.yaml`
-5. Add tests
+1. Create a folder under `src/Runax.Hookpipe/Brokers/` with a class implementing `IBroker` and a
+   settings class, one type per file
+2. Register it in `BrokerTypes.All` and `BrokerFactory`
+3. Document its settings and what its topic means in `docs/brokers.md`
+4. Add tests
 
 ## Adding a new validator
 
 1. Create a new class in `src/Runax.Hookpipe/Validation/`
 2. Implement the `IValidator` interface
-3. Add it to `ValidatorFactory.CreateAll()`
+3. Add it to `ValidatorFactory.CreateAll()` and list its fields in `HookpipeConfigurationBinder.ValidatorFields`
 4. Add tests
 
 ## Code style

@@ -4,7 +4,7 @@ Part of [Spec: Runax.Hookpipe: runax-messaging core, streaming, library and serv
 
 ## 6.1 Wiring
 
-The library's `AddHookpipe` does the wiring. The service's `Program.cs` only calls it
+The library's `AddRunaxHookpipe` does the wiring. The service's `Program.cs` only calls it
 ([§11.6](packaging.md#116-the-self-hosted-service)). Inside:
 
 ```csharp
@@ -98,7 +98,7 @@ The library adds its checks to the host's `AddHealthChecks()`, tagged `hookpipe`
 - **`/health/streams`** is new. Per stream it reports broker status, worker state, and client
   count per protocol.
 - **All probes are live.** They run on each request and are never cached. Each one keeps v1's
-  3 s timeout (`SinkHealthEndpoints.ProbeTimeout`).
+  3 s timeout (`BrokerHealthEndpoints.ProbeTimeout`).
 
 ## 6.5 Telemetry
 

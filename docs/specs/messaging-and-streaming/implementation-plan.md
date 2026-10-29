@@ -9,8 +9,8 @@ package ([§11.3](packaging.md#113-projects-and-packages)). The engine lives in 
 
 ```
 src/Runax.Hookpipe/
-  Hosting/             AddHookpipe, HookpipeBuilder (YAML + code), MapHookpipe*, MapHookpipeHealth
-  Config/              v2 models, loader (strict), interpolation, hot-reload diff
+  (root)               AddRunaxHookpipe, HookpipeConfigurator (YAML + code), MapHookpipe*, MapHookpipeHealth
+  Configuration/       v2 models, loader (strict), interpolation, hot-reload diff
     Sources/           YamlSource, ConfigurationSource (IConfiguration), CodeSource: each builds
                        the same node tree, which one binder turns into the model
   Brokers/             BrokerTypeRegistry (type → TransportConfig), BrokerUsage (bus mode), bus wiring
@@ -42,8 +42,9 @@ src/Runax.Hookpipe.Api/
 
 **Removed:**
 
-- The 11 `Sinks/*Sink.cs` files, `ISink`, `SinkFactory`, and `SinkHelper`.
-- `Sinks/Health/ISinkHealthCheck`, replaced by runax-messaging health checks plus worker state.
+- The 11 broker folders under `Brokers/` (`Kafka/KafkaBroker.cs` and the rest), `IBroker`,
+  `BrokerFactory`, and `BrokerHelper`.
+- `Brokers/Health/IBrokerHealthCheck`, replaced by runax-messaging health checks plus worker state.
 - prometheus-net's static counters in the library. prometheus-net stays, in the service only.
 
 **Packages:**
@@ -56,6 +57,9 @@ src/Runax.Hookpipe.Api/
 - The service references the library, the eight `Runax.Messaging.Transports.*` packages,
   `AWSSDK.EventBridge`, prometheus-net, and Serilog.
 - Added for packaging: `Microsoft.CodeAnalysis.PublicApiAnalyzers`.
+- Tests: replace FluentAssertions with Shouldly, which runax-messaging already uses. FluentAssertions
+  8 and later is under Xceed's license, which needs a paid license for commercial use. It's a
+  test-only dependency, so the swap is its own PR, not tied to a phase. Polly stays: it's BSD-3.
 
 **Docs to update:**
 
@@ -87,9 +91,9 @@ Each phase ships on its own.
 | --- | --- | --- |
 | 0 | runax-messaging P1, P2, and P6 (minor release) | None in Hookpipe |
 | 1 | Rename and split ([§11](packaging.md)): `Runax.Hookpipe` + `Runax.Hookpipe.Api`, the service on the public API only, metrics on `System.Diagnostics.Metrics`, Dockerfile on .NET 10, image published under the new name, with the old package's `0.2.x` tags copied over and the old package deleted. No NuGet release yet. | New image name, logger categories |
-| 2 | Config v2: strict loader, interpolation, `validate` lists, `route`, code-first definitions, the `IConfiguration` source. Still on `ISink`. | v1 files are rejected at startup; startup also fails on typos and missing secrets |
-| 3 | Publish workers per broker, still on the existing `ISink` classes (each target is served by an `ISink` built from its broker and topic): queues, `workers` / `order_by`, `ack` modes, batching hooks, supervision, new metrics, `/health/ready` | Ordering per broker or per key; 503 and 504 become possible |
-| 4 | Replace `ISink` with buses: Hookpipe-owned and app-owned buses, local transports, envelope serialized once, wire changes ([§6.3](messaging-integration.md#63-wire-changes-for-downstream-consumers)), SDK code removed. First NuGet release of `Runax.Hookpipe` (0.x). | Wire changes in §6.3 |
+| 2 | Config v2: strict loader, interpolation, `validate` lists, `route`, code-first definitions, the `IConfiguration` source. Still on the hand-written brokers (`ISink`, renamed `IBroker`), now one per broker with the topic passed per publish. The webhook and broker terms reach the outside here: envelope `webhookId`, `hookpipe.webhook.id`, the renamed metrics, `/health/brokers`. In code, sinks become brokers with a folder each, `Config` becomes `Configuration`, and the library registers with `AddRunaxHookpipe`. | v1 files are rejected at startup; startup also fails on typos and missing secrets |
+| 3 | Publish workers per broker, still on the existing `IBroker` classes (each target is served by its broker's `IBroker`, with the target's topic): queues, `workers` / `order_by`, `ack` modes, batching hooks, supervision, new metrics, `/health/ready` | Ordering per broker or per key; 503 and 504 become possible |
+| 4 | Replace `IBroker` with buses: Hookpipe-owned and app-owned buses, local transports, envelope serialized once, wire changes ([§6.3](messaging-integration.md#63-wire-changes-for-downstream-consumers)), SDK code removed. First NuGet release of `Runax.Hookpipe` (0.x). | Wire changes in §6.3 |
 | 5 | Streams + SSE: registry, worker, replay, filters, auth, CORS, `/health/streams`, docs | New feature |
 | 6 (improvement) | Local delivery with dedupe and debounce ([§4.9](streaming.md#49-improvement-local-delivery-dedupe-and-debounce)) | Lower latency on the publishing replica |
 | 7 (later) | WebSockets, then inbound publish through stream `to` targets | — |

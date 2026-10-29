@@ -10,12 +10,13 @@ Config-driven webhook gateway. Receive HTTP webhooks, validate them, and route m
 
 ```
 External service (GitHub, Stripe, Coolify, etc.)
-  → POST https://hooks.yourdomain.com/github/push
-    → Hookpipe matches route from config
-      → validates request (signature, bearer token)
-        → wraps in message envelope
-          → produces to sink (RabbitMQ, Kafka, SQS, HTTP, stdout)
-            → returns 202 Accepted
+  → POST https://hooks.yourdomain.com/webhooks/github
+    → Hookpipe matches the webhook from config
+      → validates the request (signature, bearer token, IP)
+        → picks targets, optionally by header or JSON body (JSONPath)
+          → wraps the request in a message envelope
+            → publishes to brokers (RabbitMQ, Kafka, SQS, HTTP, stdout, …)
+              → returns 202 Accepted
 ```
 
 ## Quick start
@@ -50,7 +51,7 @@ dotnet run --project src/Runax.Hookpipe.Api
 The engine is the `Runax.Hookpipe` library, which the service above is built on:
 
 ```csharp
-builder.Services.AddHookpipe(hookpipe => hookpipe.LoadYaml("config/hookpipe.yaml"));
+builder.Services.AddRunaxHookpipe(hookpipe => hookpipe.LoadYaml("config/hookpipe.yaml"));
 // ...
 app.MapHookpipe();
 app.MapHookpipeHealth();
@@ -61,65 +62,67 @@ The package isn't on NuGet yet; reference `src/Runax.Hookpipe` until it is.
 ### Test
 
 ```bash
-curl -X POST http://localhost:8080/test/webhook \
+curl -X POST http://localhost:8080/webhooks/test-webhook \
   -H "Content-Type: application/json" \
   -d '{"hello":"world"}'
 ```
 
 ## Config
 
-Define endpoints and sinks in `config/hookpipe.yaml`:
+Define brokers and webhooks in `config/hookpipe.yaml`. Webhooks publish to targets written
+`broker:topic`:
 
 ```yaml
-endpoints:
-    - id: github-push
-      path: /github/push
-      methods:
-          - POST
-      validation:
-          signature:
-              header: X-Hub-Signature-256
-              secret_env: GITHUB_WEBHOOK_SECRET
-              algorithm: hmac-sha256
-      sinks: # Fan-out to multiple sinks
-          - rabbitmq-main
-      message:
-          include_body: true
-          include_headers: true
-          header_filter:
-              - X-GitHub-Event
-              - X-GitHub-Delivery
+version: 2
 
-sinks:
-    - id: rabbitmq-main
-      type: rabbitmq
-      settings:
-          url_env: RABBITMQ_URL
-          exchange: webhooks
-          routing_key: events
+brokers:
+  rabbit:
+    type: rabbitmq
+    settings:
+      uri: ${RABBITMQ_URL}
+      exchange_name: webhooks
+
+webhooks:
+  github:                                   # POST /webhooks/github
+    validate:
+      - type: hmac-sha256
+        header: X-Hub-Signature-256
+        secret: ${GITHUB_WEBHOOK_SECRET}
+    message:
+      headers: [X-GitHub-Event, X-GitHub-Delivery]
+    route:
+      - when: { header: X-GitHub-Event, eq: ping }
+        to: none                            # acknowledge and drop
+      - when: { jsonpath: "$.action", in: [opened, reopened] }
+        to: rabbit:github.opened
+      - to: rabbit:github.events
 ```
 
-See [Configuration](docs/configuration.md) for full reference.
+The loader is strict: unknown keys, missing secrets, and unknown brokers fail startup with the
+config path of each problem. See [Configuration](docs/configuration.md) for the full reference,
+and [Upgrading](docs/upgrading.md) to move a v1 file over.
 
 ## Hot-reload
 
-Hookpipe watches the config file and reloads automatically when it changes. Validation rules, sink routing, message config, and allowed methods can be changed without restart. See [Configuration](docs/configuration.md#hot-reload) for details.
+Hookpipe watches the config file and reloads automatically when it changes. Validators, routes, targets, message config, and allowed methods change without a restart. See [Configuration](docs/configuration.md#hot-reload) for details.
 
-## Sinks
+## Brokers
 
-| Sink            | Type             | Status    |
-| --------------- | ---------------- | --------- |
-| Stdout          | `stdout`         | Available |
-| RabbitMQ        | `rabbitmq`       | Available |
-| Kafka           | `kafka`          | Available |
-| HTTP Relay      | `http`           | Available |
-| SQS             | `sqs`            | Available |
-| Redis Streams   | `redis-stream`   | Available |
-| Google Pub/Sub  | `google-pubsub`  | Available |
-| SNS             | `sns`            | Available |
-| EventBridge     | `eventbridge`    | Available |
+| Broker             | Type               | Topic means             |
+| ------------------ | ------------------ | ----------------------- |
+| Stdout             | `stdout`           | —                       |
+| HTTP relay         | `http`             | URL path (optional)     |
+| RabbitMQ           | `rabbitmq`         | Routing key             |
+| Kafka              | `kafka`            | Topic                   |
+| SQS                | `sqs`              | Queue (mapped to a URL) |
+| SNS                | `sns`              | Topic (mapped to an ARN)|
+| EventBridge        | `eventbridge`      | Detail type             |
+| Redis Streams      | `redis`            | Stream key              |
+| Google Pub/Sub     | `google-pubsub`    | Topic ID                |
+| Azure Service Bus  | `azure-servicebus` | Queue or topic          |
+| Azure Event Hubs   | `azure-eventhubs`  | Event hub               |
 
-See [Sinks](docs/sinks.md) for details.
+See [Brokers](docs/brokers.md) for details.
 
 ## Validators
 
@@ -140,10 +143,10 @@ Every webhook is wrapped in a standardized envelope:
 ```json
 {
     "id": "13979c7e-108c-48b1-aac5-ff9220a3875b",
-    "endpointId": "github-push",
+    "webhookId": "github",
     "receivedAt": "2026-05-07T16:23:55.644839+00:00",
     "method": "POST",
-    "path": "/github/push",
+    "path": "/webhooks/github",
     "remoteAddress": "192.30.252.1",
     "headers": { "X-GitHub-Event": "push" },
     "body": { "ref": "refs/heads/main" },
@@ -159,20 +162,21 @@ See [Message Envelope](docs/message-envelope.md) for full format.
 | ---------------------------- | -------------------------- | ---------------------- |
 | `HOOKPIPE_CONFIG_PATH`       | Path to YAML config        | `config/hookpipe.yaml` |
 | `HOOKPIPE_MAX_BODY_SIZE_MB`  | Max request body size (MB) | `~28.6` (Kestrel default) |
-| `RABBITMQ_URL`               | RabbitMQ connection string | —                      |
-| `KAFKA_BROKERS`              | Kafka broker list          | —                      |
 | `SEQ_URL`                    | Seq server URL             | — (disabled)           |
 | `LOKI_URL`                   | Grafana Loki URL           | — (disabled)           |
 
-See [Configuration](docs/configuration.md) for all env vars and [Logging](docs/logging.md) for log destinations.
+Broker connection strings and secrets are whatever variables your config references with
+`${…}`. See [Configuration](docs/configuration.md) for all env vars and [Logging](docs/logging.md)
+for log destinations.
 
 ## Endpoints
 
-| Method | Path       | Description                 |
-| ------ | ---------- | --------------------------- |
-| `GET`  | `/health`  | Liveness check              |
-| `GET`  | `/metrics` | Prometheus metrics          |
-| `*`    | `/*`       | Dynamic — defined in config |
+| Method | Path              | Description                                   |
+| ------ | ----------------- | --------------------------------------------- |
+| `GET`  | `/health`         | Liveness check                                |
+| `GET`  | `/health/brokers` | Live probe of every broker                    |
+| `GET`  | `/metrics`        | Prometheus metrics                            |
+| config | `/webhooks/*`     | Webhooks from config (prefix configurable)    |
 
 See [Metrics](docs/metrics.md) for available metrics and Prometheus scrape config.
 

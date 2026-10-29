@@ -1,262 +1,260 @@
 # Configuration
 
-Hookpipe is configured via a YAML file and environment variables.
+Hookpipe reads one YAML file, `config/hookpipe.yaml` by default (override with
+`HOOKPIPE_CONFIG_PATH`). The library takes any path through `hookpipe.LoadYaml(path)`.
 
-## Config file
+The file is config format v2. A file without `version: 2` is refused at startup; see
+[upgrading.md](upgrading.md) to move a v1 file over.
 
-Default path: `config/hookpipe.yaml`. Override with `HOOKPIPE_CONFIG_PATH` env var.
+## The shape of the file
 
-### Endpoints
+There are two things to define:
 
-Each endpoint defines an HTTP route that Hookpipe listens on.
+- **`brokers`**: the messaging systems Hookpipe connects to.
+- **`webhooks`**: the HTTP routes Hookpipe receives, each publishing to brokers.
 
-```yaml
-endpoints:
-    - id: github-push # Unique identifier
-      path: /github/push # URL path (supports {params})
-      methods: # Accepted HTTP methods (default: POST)
-          - POST
-      validation: # Optional — see Validation section
-          signature:
-              header: X-Hub-Signature-256
-              secret_env: GITHUB_WEBHOOK_SECRET
-              algorithm: hmac-sha256
-      sink: my-sink # Single sink (backwards compatible)
-      message: # Controls what goes into the envelope
-          include_body: true # Include request body (default: true)
-          include_headers: true # Include request headers (default: false)
-          header_filter: # Only include these headers (optional)
-              - X-GitHub-Event
-              - X-GitHub-Delivery
-          metadata: # Static or path-param metadata (optional)
-              source: "{source}" # {param} is resolved from path
-```
-
-#### Fan-out (multiple sinks)
-
-Use `sinks` (plural) to route a single endpoint to multiple destinations:
+A webhook names where it publishes inline, as a **target** such as `rabbit:github.push`
+(broker `rabbit`, topic `github.push`). There's no separate sink or destination section.
 
 ```yaml
-endpoints:
-    - id: github-push
-      path: /github/push
-      sinks: # Fan-out to multiple sinks
-          - rabbitmq-main
-          - stdout-dev
-          - relay-downstream
-      message:
-          include_body: true
+version: 2
+
+server:
+  paths:
+    webhooks: /webhooks                 # the default; every webhook is served under it
+
+brokers:
+  rabbit:
+    type: rabbitmq
+    settings:
+      uri: ${RABBITMQ_URL}
+      exchange_name: webhooks
+    publish:
+      retry: { max_retries: 3, delay: 2s, backoff: exponential, factor: 2, max_delay: 30s }
+  kafka:
+    type: kafka
+    settings:
+      bootstrap_servers: ${KAFKA_BROKERS}
+  console:
+    type: stdout
+
+webhooks:
+  github:                               # POST /webhooks/github (the path defaults to the ID)
+    validate:                           # all must pass
+      - type: hmac-sha256
+        header: X-Hub-Signature-256
+        secret: ${GITHUB_WEBHOOK_SECRET}
+    message:
+      headers: [X-GitHub-Event, X-GitHub-Delivery]
+    route:
+      - when: { header: X-GitHub-Event, eq: ping }
+        to: none                        # acknowledge and publish nothing
+      - when: { header: X-GitHub-Event, eq: push }
+        to: rabbit:github.push
+      - to: rabbit:github.other         # the last rule has no `when`
+
+  stripe:                               # POST /webhooks/stripe
+    validate:
+      - type: stripe-v1
+        secret: ${STRIPE_WEBHOOK_SECRET}
+    route:
+      - when: { jsonpath: "$.type", in: [invoice.paid, checkout.session.completed] }
+        to: kafka:payments
+      - when:
+          all:
+            - { jsonpath: "$.type", starts_with: "charge." }
+            - { jsonpath: "$.data.object.amount", gte: 100000 }
+        to: [kafka:payments, rabbit:alerts.large-charge]
+      - to: none
+
+  ingest:
+    path: ingest/{source}               # POST /webhooks/ingest/{source}
+    rate_limit: { requests: 100, window: 60s }
+    message:
+      metadata: { source: "{source}" }
+    to: [kafka:ingest, console]         # no route: every request goes to both
 ```
 
-Both `sink` (single string) and `sinks` (list) are supported. If both are set, `sinks` takes precedence.
+## Rules that apply everywhere
 
-### Sinks
+- **Strict.** Unknown keys, missing required values, and references to things that don't exist
+  fail the load. Every problem is reported with its path, for example
+  `webhooks.github.validate[0].secrett: unknown key`, and one load reports all of them.
+- **Maps keyed by ID.** Brokers and webhooks are maps, not lists. IDs use letters, digits, `.`,
+  `_`, and `-`, and they're compared ignoring case, so `GitHub` and `github` are a duplicate.
+- **Key names** match ignoring case and underscores: `max_retries`, `MaxRetries`, and
+  `maxRetries` are the same key. IDs, header names, metadata keys, and map keys inside broker
+  `settings` are never changed.
+- **Durations** are written `500ms`, `5s`, `2m`, or `1h`.
 
-Each sink defines where messages are sent.
+### Interpolation
+
+`${…}` is filled in when the config loads:
+
+| Written | Becomes |
+| --- | --- |
+| `${VAR}` | The environment variable `VAR`. If it isn't set, the load fails and names the variable. |
+| `${VAR:-default}` | `default` when `VAR` is unset or empty. |
+| `${file:/run/secrets/name}` | The file's contents without the trailing newline, for Docker and Kubernetes secrets. |
+| `$${` | A literal `${`. |
+
+Interpolated values count as secrets: they never appear in error messages or logs. Targets
+(`to`) can't be interpolated.
+
+Single braces, `{source}`, aren't interpolation. They're filled in per request from path
+parameters (see `message.metadata` below).
+
+## `server`
+
+| Key | Description | Default |
+| --- | --- | --- |
+| `paths.webhooks` | The prefix every webhook is served under. Use `/` to serve webhooks at the root, for example to keep URLs from v1. | `/webhooks` |
+
+## `brokers`
+
+| Key | Description | Default |
+| --- | --- | --- |
+| `type` | `rabbitmq`, `kafka`, `sqs`, `sns`, `eventbridge`, `redis`, `google-pubsub`, `azure-servicebus`, `azure-eventhubs`, `http`, or `stdout` | required |
+| `settings` | Connection settings for the type, documented in [brokers.md](brokers.md). Unknown keys are errors. | — |
+| `publish.retry.max_retries` | Retries after the first attempt | `3` |
+| `publish.retry.delay` | First retry delay | `2s` |
+| `publish.retry.backoff` | `constant`, `linear`, or `exponential` | `exponential` |
+| `publish.retry.factor` | What each exponential delay is multiplied by | `2` |
+| `publish.retry.max_delay` | Cap on any single delay | `30s` |
+| `publish.retry.jitter` | Spread each delay by ±25% | `true` |
+
+Without a `publish.retry` block, a failed publish isn't retried.
+
+## Targets
+
+A target names a broker and, for brokers that have them, a topic. Write it one of three ways:
+
+| Form | Example | Use |
+| --- | --- | --- |
+| `broker:topic` | `rabbit:github.push` | The usual case. It splits at the first `:`. |
+| `broker` | `console` | Brokers without topics: `stdout`, and `http` posting to its base URL |
+| An object | `{ broker: kafka, topic: payments }` | The same as `kafka:payments` |
+
+What the topic means depends on the broker: a RabbitMQ routing key, a Kafka topic, a Redis
+stream key, and so on ([brokers.md](brokers.md)). The loader checks that every target's broker
+exists, that brokers which need a topic get one, and that SQS and SNS topics are in the broker's
+map.
+
+`to` takes one target or a list. `to: none` (or `to: []`) means "acknowledge and publish
+nothing". `none` can't be a broker ID.
+
+## `webhooks`
+
+| Key | Description | Default |
+| --- | --- | --- |
+| `path` | Route under `server.paths.webhooks`. May contain path parameters such as `{source}`. A leading `/` is allowed and means the same. | The webhook ID |
+| `methods` | Allowed HTTP methods. Other methods get 405. | `[POST]` |
+| `validate` | Validators that must all pass, in order. See [validators.md](validators.md). | none |
+| `rate_limit` | `requests` per `window` (fixed window). Over the limit gets 429. | none |
+| `message.body` | Include the request body | `true` |
+| `message.headers` | `true` for every header, `false` for none, or a list of names | `false` |
+| `message.metadata` | Values added to the envelope. `{name}` is replaced with the path parameter `name`. | none |
+| `to` | Targets for every request. Use either `to` or `route`. | — |
+| `route` | Ordered rules `{ when?, to }`. The first rule whose `when` matches picks the targets. The last rule must have no `when`. | — |
+
+Routes must be unique, and none may shadow the service's own `/health`, `/health/*`, or
+`/metrics`. Path parameters must be plain names; `webhook_id` and `topic` are reserved.
+
+### Responses
+
+| Status | When | Body |
+| --- | --- | --- |
+| 202 | At least one target succeeded, or there were no targets | `{"status":"accepted","webhook_id":…,"message_id":…}` |
+| 401 | A validator failed | `{"error":"unauthorized"}` |
+| 404 | The webhook was removed by a reload | — |
+| 405 | The method isn't in `methods` | — |
+| 429 | Over `rate_limit` | `{"error":"rate_limit_exceeded","webhook_id":…}` |
+| 500 | Every target failed | `{"error":"publish_failed","webhook_id":…}` |
+
+## Routing with conditions
+
+A condition names one source and one operator:
 
 ```yaml
-sinks:
-    - id: my-sink
-      type: stdout # Sink type (see below)
-      settings: # Type-specific settings
-          key: value
+- { jsonpath: "$.status", eq: paid }
+- { jsonpath: "$.data.object.amount", gte: 100000 }
+- { jsonpath: "$.type", in: [invoice.paid, checkout.session.completed] }
+- { header: X-GitHub-Event, eq: push }
+- { path: source, ne: test }
 ```
 
-#### Stdout
+| Source | Reads |
+| --- | --- |
+| `jsonpath` | The JSON request body, through an [RFC 9535](https://www.rfc-editor.org/rfc/rfc9535) JSONPath. Paths must start with `$`. |
+| `header` | A request header. The name is case-insensitive. |
+| `path` | A path parameter of the webhook's route |
 
-Logs the message envelope to console as JSON. For development only.
+| Operator | Matches when |
+| --- | --- |
+| `eq: v` | The value equals `v`. A plain number or `true`/`false` compares by value (`100` matches `100.0`); anything else, including a quoted `"100"`, compares as text, where a JSON number's text is its literal. Header and path values have no type, so they match by text or by the same number or boolean. |
+| `ne: v` | The value doesn't equal `v`. False when nothing is selected. |
+| `in: [a, b]` | The value equals one of the list |
+| `not_in: [a, b]` | The value equals none of the list. False when nothing is selected. |
+| `gt`, `gte`, `lt`, `lte` | Numeric comparison. Needs a number; a JSON string or missing value doesn't match. |
+| `contains: v`, `starts_with: v`, `ends_with: v` | Text comparison, ignoring case |
+| `regex: p` | The .NET regex `p` matches (case-sensitive, 100 ms timeout) |
+| `exists: true` / `exists: false` | At least one non-null value is selected / none is |
+
+- **Several values.** When a JSONPath selects several values (`$.items[*].sku`), the condition
+  holds if any of them matches. For "every item", negate the opposite:
+  `not: { jsonpath: "$.items[*].qty", lte: 0 }`.
+- **Filter selectors** cover what the operators don't:
+  `{ jsonpath: "$.items[?@.qty > 10 && @.sku == 'A1']", exists: true }`.
+- **Non-JSON bodies.** When the body isn't JSON, `jsonpath` conditions don't match, except
+  `exists: false`.
+- **Checked at load.** Every JSONPath and regex is parsed when the config loads, and operator
+  values must have the right type (`gt` needs a number, `in` needs a list).
+
+`when` takes one condition, a list (all must match), or an `all`, `any`, or `not` node. Nodes
+nest up to 8 levels deep.
 
 ```yaml
-sinks:
-    - id: dev
-      type: stdout
+route:
+  - when:                                         # a list: all of them
+      - { jsonpath: "$.type", eq: invoice.paid }
+      - { jsonpath: "$.livemode", eq: true }
+    to: kafka:payments
+  - when:
+      any:
+        - { jsonpath: "$.data.object.amount", gte: 100000 }
+        - { header: X-Priority, eq: high }
+    to: [kafka:payments, rabbit:alerts]
+  - when:
+      not: { jsonpath: "$.status", in: [paid, refunded] }
+    to: kafka:pending
+  - to: kafka:other
 ```
-
-#### RabbitMQ
-
-Publishes messages to a RabbitMQ exchange.
-
-```yaml
-sinks:
-    - id: rabbitmq-main
-      type: rabbitmq
-      settings:
-          url_env: RABBITMQ_URL # Env var holding the AMQP connection string
-          exchange: webhooks # Exchange name (default: "")
-          routing_key: events # Routing key (default: "")
-```
-
-The exchange is declared as `topic` and `durable` on startup.
-
-#### Kafka
-
-Produces messages to a Kafka topic.
-
-```yaml
-sinks:
-    - id: kafka-events
-      type: kafka
-      settings:
-          brokers_env: KAFKA_BROKERS # Env var holding the broker list
-          topic: webhook-events # Kafka topic (required)
-```
-
-Uses idempotent producer with `Acks.All`. Message key is the endpoint ID.
-
-#### SQS
-
-Sends messages to an AWS SQS queue.
-
-```yaml
-sinks:
-    - id: sqs-main
-      type: sqs
-      settings:
-          queue_url_env: SQS_QUEUE_URL # Env var holding the queue URL
-          region_env: AWS_REGION # Env var holding the region (optional)
-```
-
-AWS credentials are resolved via the default credential chain.
-
-#### HTTP Relay
-
-Forwards messages to another HTTP endpoint.
-
-```yaml
-sinks:
-    - id: relay-downstream
-      type: http
-      settings:
-          url_env: HTTP_RELAY_URL # Env var holding the target URL
-          timeout_seconds: "30" # Request timeout (default: 30)
-```
-
-## Validation
-
-Optional per-endpoint request validation. Only one method per endpoint.
-
-### Bearer token
-
-Compares the `Authorization` header against a secret from an env var.
-
-```yaml
-validation:
-    auth:
-        type: bearer
-        token_env: MY_WEBHOOK_TOKEN # Env var holding the expected token
-```
-
-Accepts both `Bearer <token>` and raw `<token>` formats.
-
-### HMAC-SHA256
-
-Computes HMAC-SHA256 of the request body and compares to the signature header.
-
-```yaml
-validation:
-    signature:
-        header: X-Hub-Signature-256 # Header containing the signature
-        secret_env: GITHUB_SECRET # Env var holding the signing secret
-        algorithm: hmac-sha256 # Algorithm identifier
-```
-
-Handles signatures with or without prefix (e.g. `sha256=<hex>`).
-
-### Stripe signature
-
-Validates using Stripe's v1 signing scheme with timestamp freshness check.
-
-```yaml
-validation:
-    signature:
-        header: Stripe-Signature
-        secret_env: STRIPE_WEBHOOK_SECRET
-        algorithm: stripe-v1
-```
-
-### API key
-
-Compares a custom header value against an env var.
-
-```yaml
-validation:
-    auth:
-        type: api-key
-        header: X-API-Key
-        token_env: MY_API_KEY
-```
-
-### IP allowlist
-
-Restricts requests to specific IPs or CIDRs.
-
-```yaml
-validation:
-    auth:
-        type: ip-allowlist
-        token_env: ALLOWED_IPS # e.g. "192.168.1.0/24,10.0.0.1"
-```
-
-## Retry policy
-
-Optional per-sink retry with exponential backoff and jitter. If a sink produce fails, Hookpipe retries before returning an error.
-
-```yaml
-sinks:
-    - id: rabbitmq-main
-      type: rabbitmq
-      settings:
-          url_env: RABBITMQ_URL
-          exchange: webhooks
-      retry:
-          max_retries: 3
-          delay_seconds: 2
-          backoff_multiplier: 2
-```
-
-| Key                  | Description                                | Default |
-| -------------------- | ------------------------------------------ | ------- |
-| `max_retries`        | Maximum retry attempts                     | `3`     |
-| `delay_seconds`      | Initial delay before first retry           | `2`     |
-| `backoff_multiplier` | Exponential multiplier (e.g. 2s, 4s, 8s)  | `2`     |
-
-If no `retry` block is defined, the sink produces once with no retries (current default behavior). Each retry attempt is logged as a warning with the attempt number and exception message.
 
 ## Environment variables
 
-| Variable                                  | Description                                         | Default                |
-| ----------------------------------------- | --------------------------------------------------- | ---------------------- |
-| `HOOKPIPE_CONFIG_PATH`                    | Path to YAML config file                            | `config/hookpipe.yaml` |
-| `HOOKPIPE_MAX_BODY_SIZE_MB`               | Max request body size in MB. Returns 413 if exceeded | `~28.6` (Kestrel default) |
-| `Logging__LogLevel__Default`              | Default log level                                   | `Information`          |
-| `Logging__LogLevel__Runax`                | Hookpipe log level (`Runax.*` categories)           | `Information`          |
-| `Logging__LogLevel__Microsoft.AspNetCore` | ASP.NET log level                                   | `Warning`              |
-| `RABBITMQ_URL`                            | RabbitMQ connection string (if using RabbitMQ sink) | —                      |
-| `KAFKA_BROKERS`                           | Kafka broker list (if using Kafka sink)             | —                      |
-| `HTTP_RELAY_URL`                          | HTTP relay target URL (if using HTTP sink)          | —                      |
-| `SQS_QUEUE_URL`                           | SQS queue URL (if using SQS sink)                   | —                      |
-| `AWS_REGION`                              | AWS region for SQS (optional)                       | SDK default            |
-| `SEQ_URL`                                 | Seq server URL (if using Seq logging)               | — (disabled)           |
-| `SEQ_API_KEY`                             | Seq API key                                         | — (optional)           |
-| `LOKI_URL`                                | Grafana Loki URL (if using Loki logging)            | — (disabled)           |
+| Variable | Description | Default |
+| --- | --- | --- |
+| `HOOKPIPE_CONFIG_PATH` | Path to the YAML config file | `config/hookpipe.yaml` |
+| `HOOKPIPE_MAX_BODY_SIZE_MB` | Max request body size in MB (service only); larger requests get 413 | Kestrel's default (~28.6 MB) |
+| `Logging__LogLevel__Default` | Default log level | `Information` |
+| `Logging__LogLevel__Runax` | Hookpipe log level (`Runax.*` categories) | `Information` |
+| `Logging__LogLevel__Microsoft.AspNetCore` | ASP.NET log level | `Warning` |
+| `SEQ_URL`, `SEQ_API_KEY` | Seq logging | disabled |
+| `LOKI_URL` | Grafana Loki logging | disabled |
 
-Secrets referenced by `secret_env`, `token_env`, and `url_env` in config are resolved from environment variables at runtime.
+Any other variable is yours to name and reference from the config with `${…}`, for example
+`${RABBITMQ_URL}`.
 
-## Hot-reload
+## Hot reload
 
-Hookpipe watches the config file for changes and reloads automatically. No restart needed.
+Hookpipe watches the config file and reloads it 500 ms after the last change.
 
-**What can be changed at runtime:**
+| Change | Takes effect |
+| --- | --- |
+| A webhook's `methods`, `validate`, `message`, `to`, `route` | On the next request |
+| A broker's `publish.retry` | On the next publish |
+| Adding or removing webhooks or brokers; changing a `path`, `server.paths`, a broker's `type` or `settings`, or a `rate_limit` | After a restart. The reload is applied, and the log lists what needs a restart, such as `brokers.audit (added)`. |
 
-- Validation rules (add, remove, or change auth/signature config)
-- Sink routing (point an endpoint to a different sink)
-- Message config (include body, headers, metadata, header filters)
-- Allowed HTTP methods per endpoint
-
-**What requires a restart:**
-
-- Adding new endpoint paths (routes are registered once at startup)
-- Adding new sinks (connections are created at startup)
-- Removing endpoint paths
-
-Changes are debounced (500ms) to avoid reloading multiple times during a save. If the new config is invalid, the previous config is kept and an error is logged.
+A reload is rejected as a whole, and the current config stays in force, when the file is invalid
+or when a target uses a broker that isn't running (for example, a route to a broker added in the
+same reload). The reason is logged.

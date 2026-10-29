@@ -1,16 +1,17 @@
 # Message Envelope
 
-Every webhook received by Hookpipe is wrapped in a standardized envelope before being sent to a sink.
+Every webhook request Hookpipe accepts is wrapped in a standardized envelope before it's published
+to brokers.
 
 ## Format
 
 ```json
 {
     "id": "13979c7e-108c-48b1-aac5-ff9220a3875b",
-    "endpointId": "github-push",
+    "webhookId": "github-push",
     "receivedAt": "2026-05-07T16:23:55.644839+00:00",
     "method": "POST",
-    "path": "/github/push",
+    "path": "/webhooks/github-push",
     "remoteAddress": "192.30.252.1",
     "headers": {
         "X-GitHub-Event": "push",
@@ -31,22 +32,28 @@ Every webhook received by Hookpipe is wrapped in a standardized envelope before 
 | Field           | Type               | Description                                                                                 |
 | --------------- | ------------------ | ------------------------------------------------------------------------------------------- |
 | `id`            | string             | Unique message ID (UUID), generated per request                                             |
-| `endpointId`    | string             | ID of the matched endpoint from config                                                      |
+| `webhookId`     | string             | ID of the webhook from config                                                               |
 | `receivedAt`    | string             | ISO 8601 timestamp when the request was received                                            |
 | `method`        | string             | HTTP method of the incoming request                                                         |
 | `path`          | string             | Request path                                                                                |
 | `remoteAddress` | string             | IP address of the caller                                                                    |
 | `headers`       | object             | Request headers (filtered by config)                                                        |
-| `body`          | object/string/null | Request body — parsed as JSON if valid, raw string otherwise, null if `include_body: false` |
+| `body`          | object/string/null | Request body — parsed as JSON if valid, raw string otherwise, null if `body: false`         |
 | `metadata`      | object             | Static or path-param-derived key-value pairs from config                                    |
 
 ## What's included
 
-The `message` config on each endpoint controls what goes into the envelope:
+The `message` config on each webhook controls what goes into the envelope:
 
-- **`include_body: true`** (default) — body is included, parsed as JSON if possible
-- **`include_body: false`** — body is null
-- **`include_headers: true`** — all headers are included
-- **`include_headers: true` + `header_filter`** — only listed headers are included
-- **`include_headers: false`** (default) — headers object is empty
+- **`body: true`** (default) — body is included, parsed as JSON if possible
+- **`body: false`** — body is null
+- **`headers: true`** — all headers are included
+- **`headers: [X-GitHub-Event, …]`** — only listed headers are included
+- **`headers: false`** (default) — headers object is empty
 - **`metadata`** — static values or `{param}` placeholders resolved from path parameters
+
+## Headers and attributes
+
+Brokers with message headers or attributes also carry the IDs there, so consumers can route
+without parsing the body: `hookpipe.message.id` (the envelope `id`) and `hookpipe.webhook.id`.
+Kafka records are keyed by the webhook ID. See [brokers.md](brokers.md) for each broker.

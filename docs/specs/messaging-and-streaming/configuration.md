@@ -409,7 +409,7 @@ compatibility mode. A file without `version: 2` stops startup with an error that
 and links this section:
 
 ```
-[Hookpipe.Config] 'config/hookpipe.yaml' has no 'version: 2'. Config format v1 is not
+[Hookpipe.Configuration] 'config/hookpipe.yaml' has no 'version: 2'. Config format v1 is not
 supported; see the upgrade guide: docs/upgrading.md
 ```
 
@@ -491,7 +491,7 @@ In library mode, the whole definition can live in an `IConfiguration` section, n
 of the app's settings:
 
 ```csharp
-builder.Services.AddHookpipe(hookpipe =>
+builder.Services.AddRunaxHookpipe(hookpipe =>
     hookpipe.LoadConfiguration(builder.Configuration.GetSection("Hookpipe")));
 ```
 
