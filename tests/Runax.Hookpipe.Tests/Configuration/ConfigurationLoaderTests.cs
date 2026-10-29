@@ -81,8 +81,8 @@ public sealed class ConfigurationLoaderTests
         github.Path.Should().Be("github");
         github.Methods.Should().Equal("POST");
         github.Validate.Should().HaveCount(2);
-        github.Validate[0].Should().BeEquivalentTo(new ValidatorConfiguration
-            { Type = "hmac-sha256", Header = "X-Hub-Signature-256", Secret = "s3cret" });
+        github.Validate[0].Should().BeEquivalentTo(
+            new ValidatorConfiguration { Type = "hmac-sha256", Header = "X-Hub-Signature-256", Secret = "s3cret" });
         github.Validate[1].Allow.Should().Equal("192.30.252.0/22", "10.0.0.1");
         github.Message.IncludeHeaders.Should().BeTrue();
         github.Message.HeaderNames.Should().Equal("X-GitHub-Event");

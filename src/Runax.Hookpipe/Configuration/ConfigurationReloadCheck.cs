@@ -25,14 +25,14 @@ internal sealed record ConfigurationReloadCheck(IReadOnlyList<string> RestartReq
         CompareWebhooks(running, next, restart);
 
         foreach (var (webhookId, webhook) in next.Webhooks)
-        foreach (var target in Targets(webhook))
-        {
-            if (!running.Brokers.TryGetValue(target.Broker, out var runningBroker))
-                rejections.Add($"webhooks.{webhookId}: target '{target}' uses broker '{target.Broker}', which isn't running");
-            else if (runningBroker.Type != next.Brokers[target.Broker].Type)
-                rejections.Add($"webhooks.{webhookId}: target '{target}' uses broker '{target.Broker}', " +
-                               $"which is running as type '{runningBroker.Type}'");
-        }
+            foreach (var target in Targets(webhook))
+            {
+                if (!running.Brokers.TryGetValue(target.Broker, out var runningBroker))
+                    rejections.Add($"webhooks.{webhookId}: target '{target}' uses broker '{target.Broker}', which isn't running");
+                else if (runningBroker.Type != next.Brokers[target.Broker].Type)
+                    rejections.Add($"webhooks.{webhookId}: target '{target}' uses broker '{target.Broker}', " +
+                                   $"which is running as type '{runningBroker.Type}'");
+            }
 
         return new ConfigurationReloadCheck(restart, rejections.Distinct().ToList());
     }

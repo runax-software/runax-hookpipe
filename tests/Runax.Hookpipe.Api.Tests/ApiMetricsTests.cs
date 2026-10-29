@@ -93,7 +93,9 @@ public sealed class ApiMetricsTests
 
         var unauthorized = await client.PostAsync($"/webhooks/secured-{suffix}", new StringContent("{}"));
         var authorized = new HttpRequestMessage(HttpMethod.Post, $"/webhooks/secured-{suffix}")
-            { Content = new StringContent("{}") };
+        {
+            Content = new StringContent("{}"),
+        };
         authorized.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", "secret-token");
         var accepted = await client.SendAsync(authorized);
         var failed = await client.PostAsync($"/webhooks/broken-{suffix}", new StringContent("{}"));

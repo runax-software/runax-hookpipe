@@ -631,10 +631,10 @@ internal sealed partial class HookpipeConfigurationBinder(ConfigurationErrors er
             var parameters = CheckRoute(id, webhook, configuration.Server.Paths.Webhooks, path, routes);
 
             foreach (var (rule, index) in (webhook.Route ?? []).Select((rule, index) => (rule, index)))
-            foreach (var parameter in rule.When?.PathParameters ?? [])
-                if (!parameters.Contains(parameter))
-                    errors.Add(path.Child("route").Item(index).Child("when"),
-                        $"path parameter '{parameter}' isn't in the webhook's path '{webhook.Path}'");
+                foreach (var parameter in rule.When?.PathParameters ?? [])
+                    if (!parameters.Contains(parameter))
+                        errors.Add(path.Child("route").Item(index).Child("when"),
+                            $"path parameter '{parameter}' isn't in the webhook's path '{webhook.Path}'");
 
             resolvedWebhooks[id] = new WebhookConfiguration
             {
