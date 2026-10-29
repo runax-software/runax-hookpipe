@@ -1,5 +1,5 @@
 using System.Net;
-using Runax.Hookpipe.Config;
+using Runax.Hookpipe.Configuration;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 
@@ -22,23 +22,15 @@ public sealed class IpAllowlistValidator(ILogger<IpAllowlistValidator> logger) :
 
     /// <inheritdoc />
     /// <remarks>
-    /// Returns false if: config.Auth is null, the env var is not set or empty,
+    /// Returns false if: <c>allow</c> is empty,
     /// the remote IP cannot be determined, or the IP is not in the allowlist.
     /// Supports both individual IPs and CIDR notation.
     /// </remarks>
-    public Task<bool> ValidateAsync(HttpContext context, ValidationConfig config)
+    public Task<bool> ValidateAsync(HttpContext context, ValidatorConfiguration configuration)
     {
-        if (config.Auth is null)
+        if (configuration.Allow.Count == 0)
         {
-            logger.LogDebug("[Hookpipe.Validator:ip-allowlist] Skipped: auth config is null");
-            return Task.FromResult(false);
-        }
-
-        var allowlistRaw = Environment.GetEnvironmentVariable(config.Auth.TokenEnv);
-        if (string.IsNullOrEmpty(allowlistRaw))
-        {
-            logger.LogDebug("[Hookpipe.Validator:ip-allowlist] Failed: env var '{TokenEnv}' is not set",
-                config.Auth.TokenEnv);
+            logger.LogDebug("[Hookpipe.Validator:ip-allowlist] Failed: 'allow' is empty");
             return Task.FromResult(false);
         }
 
@@ -53,9 +45,7 @@ public sealed class IpAllowlistValidator(ILogger<IpAllowlistValidator> logger) :
         if (remoteIp.IsIPv4MappedToIPv6)
             remoteIp = remoteIp.MapToIPv4();
 
-        var entries = allowlistRaw.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-
-        foreach (var entry in entries)
+        foreach (var entry in configuration.Allow)
         {
             if (entry.Contains('/'))
             {
@@ -76,17 +66,31 @@ public sealed class IpAllowlistValidator(ILogger<IpAllowlistValidator> logger) :
         return Task.FromResult(false);
     }
 
+    /// <summary>
+    /// Whether an allowlist entry is an IP address, or a CIDR range whose prefix fits its address
+    /// family (0–32 for IPv4, 0–128 for IPv6).
+    /// </summary>
+    internal static bool IsAddressOrRange(string entry) =>
+        entry.Contains('/') ? TryParseCidr(entry, out _, out _) : IPAddress.TryParse(entry, out _);
+
+    private static bool TryParseCidr(string cidr, out IPAddress network, out int prefixLength)
+    {
+        network = IPAddress.None;
+        prefixLength = 0;
+
+        var parts = cidr.Split('/');
+        return parts.Length == 2 && IPAddress.TryParse(parts[0], out network!) &&
+               int.TryParse(parts[1], out prefixLength) &&
+               prefixLength >= 0 && prefixLength <= network.GetAddressBytes().Length * 8;
+    }
+
     private static bool IsInCidr(IPAddress ip, string cidr)
     {
-        var parts = cidr.Split('/');
-        if (parts.Length != 2 || !IPAddress.TryParse(parts[0], out var network) || !int.TryParse(parts[1], out var
-                prefixLength))
-            return false;
+        if (!TryParseCidr(cidr, out var network, out var prefixLength)) return false;
 
         var networkBytes = network.GetAddressBytes();
         var ipBytes = ip.GetAddressBytes();
-        if (networkBytes.Length != ipBytes.Length)
-            return false;
+        if (networkBytes.Length != ipBytes.Length) return false;
 
         var fullBytes = prefixLength / 8;
         var remainingBits = prefixLength % 8;

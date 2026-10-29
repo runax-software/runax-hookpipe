@@ -1,6 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
-using Runax.Hookpipe.Config;
+using Runax.Hookpipe.Configuration;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 
@@ -27,29 +27,21 @@ public sealed class HmacSha256Validator(ILogger<HmacSha256Validator> logger) : I
 
     /// <inheritdoc />
     /// <remarks>
-    /// Returns false if: config.Signature is null, the secret env var is not set,
+    /// Returns false if: the header or secret is not configured,
     /// the signature header is missing, or the computed signature does not match.
     /// </remarks>
-    public async Task<bool> ValidateAsync(HttpContext context, ValidationConfig config)
+    public async Task<bool> ValidateAsync(HttpContext context, ValidatorConfiguration configuration)
     {
-        if (config.Signature is null)
+        var secret = configuration.Secret;
+        if (string.IsNullOrEmpty(secret) || string.IsNullOrEmpty(configuration.Header))
         {
-            logger.LogDebug("[Hookpipe.Validator:hmac-sha256] Skipped: signature config is null");
+            logger.LogDebug("[Hookpipe.Validator:hmac-sha256] Failed: 'header' or 'secret' is not configured");
             return false;
         }
 
-        var secret = Environment.GetEnvironmentVariable(config.Signature.SecretEnv);
-        if (string.IsNullOrEmpty(secret))
+        if (!context.Request.Headers.TryGetValue(configuration.Header, out var signatureHeader))
         {
-            logger.LogDebug("[Hookpipe.Validator:hmac-sha256] Failed: env var '{SecretEnv}' is not set",
-                config.Signature.SecretEnv);
-            return false;
-        }
-
-        if (!context.Request.Headers.TryGetValue(config.Signature.Header, out var signatureHeader))
-        {
-            logger.LogDebug("[Hookpipe.Validator:hmac-sha256] Failed: header '{Header}' is missing",
-                config.Signature.Header);
+            logger.LogDebug("[Hookpipe.Validator:hmac-sha256] Failed: header '{Header}' is missing", configuration.Header);
             return false;
         }
 
