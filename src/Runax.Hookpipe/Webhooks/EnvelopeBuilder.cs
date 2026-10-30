@@ -10,7 +10,6 @@ namespace Runax.Hookpipe.Webhooks;
 /// Builds a <see cref="MessageEnvelope"/> from an incoming HTTP request
 /// based on the matched webhook configuration.
 /// Parses JSON bodies when possible, falls back to raw string.
-/// Resolves path parameter placeholders in metadata values.
 /// </summary>
 public sealed class EnvelopeBuilder(ILogger<EnvelopeBuilder> logger)
 {
@@ -20,13 +19,13 @@ public sealed class EnvelopeBuilder(ILogger<EnvelopeBuilder> logger)
     /// <param name="context">The incoming HTTP request context.</param>
     /// <param name="webhookId">The ID of the webhook that received the request.</param>
     /// <param name="webhook">The webhook's configuration.</param>
-    /// <param name="pathParams">Optional path parameters extracted from the URL (e.g. {source} -> "github").</param>
+    /// <param name="metadata">The webhook's <c>message.metadata</c>, with its templates already rendered.</param>
     /// <returns>A populated <see cref="MessageEnvelope"/> ready to be published.</returns>
     public async Task<MessageEnvelope> BuildAsync(
         HttpContext context,
         string webhookId,
         WebhookConfiguration webhook,
-        IReadOnlyDictionary<string, string>? pathParams = null)
+        IReadOnlyDictionary<string, string> metadata)
     {
         logger.LogDebug("[Hookpipe.Envelope] Building for webhook '{WebhookId}', {Method} {Path}",
             webhookId, context.Request.Method, context.Request.Path.Value);
@@ -73,18 +72,11 @@ public sealed class EnvelopeBuilder(ILogger<EnvelopeBuilder> logger)
             }
         }
 
-        if (webhook.Message.Metadata.Count == 0) return envelope;
-        foreach (var (key, value) in webhook.Message.Metadata)
-        {
-            var resolved = value;
-            if (pathParams is not null)
-                foreach (var (paramKey, paramValue) in pathParams)
-                    resolved = resolved.Replace($"{{{paramKey}}}", paramValue);
+        if (metadata.Count == 0) return envelope;
+        foreach (var (key, value) in metadata)
+            envelope.Metadata[key] = value;
 
-            envelope.Metadata[key] = resolved;
-        }
-
-        logger.LogDebug("[Hookpipe.Envelope] Resolved {Count} metadata key(s)", envelope.Metadata.Count);
+        logger.LogDebug("[Hookpipe.Envelope] Added {Count} metadata key(s)", envelope.Metadata.Count);
 
         return envelope;
     }

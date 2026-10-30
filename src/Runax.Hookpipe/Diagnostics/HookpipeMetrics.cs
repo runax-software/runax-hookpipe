@@ -25,6 +25,9 @@ internal static class HookpipeMetrics
     private static readonly Counter<long> PublishErrors = Meter.CreateCounter<long>(
         "hookpipe.publish.errors", description: "Total failed publishes");
 
+    private static readonly Counter<long> TemplateFailures = Meter.CreateCounter<long>(
+        "hookpipe.template.failures", description: "Total targets skipped because a template failed");
+
     private static readonly Counter<long> ValidationFailures = Meter.CreateCounter<long>(
         "hookpipe.validation.failures", description: "Total validation failures");
 
@@ -48,6 +51,13 @@ internal static class HookpipeMetrics
     /// </summary>
     public static void RecordPublishError(string webhookId, string brokerId) =>
         PublishErrors.Add(1, new("webhook_id", webhookId), new("broker_id", brokerId));
+
+    /// <summary>
+    /// Counts a target skipped because its template failed: <c>template_unresolved</c> when a
+    /// placeholder had no value, <c>template_invalid</c> when the rendered topic isn't allowed.
+    /// </summary>
+    public static void RecordTemplateFailure(string brokerId, string reason) =>
+        TemplateFailures.Add(1, new("broker_id", brokerId), new("reason", reason));
 
     /// <summary>
     /// Counts a request rejected by validation.

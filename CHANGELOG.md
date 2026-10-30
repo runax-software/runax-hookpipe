@@ -21,6 +21,8 @@ v2 is a breaking release with no compatibility mode. See [docs/upgrading.md](doc
 
 ### Added
 - Routing on the JSON body with RFC 9535 JSONPath, plus header and path-parameter conditions; operators `eq`, `ne`, `in`, `not_in`, `gt`, `gte`, `lt`, `lte`, `contains`, `starts_with`, `ends_with`, `regex`, `exists`, combined with `all`, `any`, and `not`.
+- Templates in target topics and `message.metadata` values: path parameters, `{webhook_id}`, `{metadata.key}`, `{header.Name}`, and `{$.json.path}` with `:-` defaults. Topics render per target; an unresolved or invalid one skips only that target and is counted in `hookpipe_template_failures_total`.
+- Path-parameter placeholders in condition values, such as `{ header: X-Tenant, eq: "{tenant}" }`.
 - Retry `backoff` (`constant`, `linear`, `exponential`), `max_delay`, and `jitter`.
 - Reloads that need a restart are logged; a reload whose targets use a broker that isn't running is rejected.
 

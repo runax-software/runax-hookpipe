@@ -39,7 +39,7 @@ to brokers.
 | `remoteAddress` | string             | IP address of the caller                                                                    |
 | `headers`       | object             | Request headers (filtered by config)                                                        |
 | `body`          | object/string/null | Request body — parsed as JSON if valid, raw string otherwise, null if `body: false`         |
-| `metadata`      | object             | Static or path-param-derived key-value pairs from config                                    |
+| `metadata`      | object             | Key-value pairs from `message.metadata`, with their templates rendered                     |
 
 ## What's included
 
@@ -50,7 +50,7 @@ The `message` config on each webhook controls what goes into the envelope:
 - **`headers: true`** — all headers are included
 - **`headers: [X-GitHub-Event, …]`** — only listed headers are included
 - **`headers: false`** (default) — headers object is empty
-- **`metadata`** — static values or `{param}` placeholders resolved from path parameters
+- **`metadata`** — static values or [templates](configuration.md#templates) such as `{source}`, `{header.X-Tenant}`, or `{$.customer.id}`, rendered per message
 
 ## Headers and attributes
 

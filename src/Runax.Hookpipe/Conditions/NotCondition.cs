@@ -17,5 +17,5 @@ public sealed class NotCondition(Condition condition) : Condition
 
     internal override IEnumerable<string> PathParameters => Condition.PathParameters;
 
-    internal override bool Evaluate(ConditionContext context) => !Condition.Evaluate(context);
+    internal override bool Evaluate(EvaluationContext context) => !Condition.Evaluate(context);
 }

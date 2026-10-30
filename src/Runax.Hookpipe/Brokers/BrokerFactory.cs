@@ -46,12 +46,13 @@ public static class BrokerFactory
 
     /// <summary>
     /// The topics the configuration's targets use on a broker, so brokers that create a client per topic
-    /// can create and health-check them up front.
+    /// can create and health-check them up front. Templated topics are only known per message, so
+    /// they're left out.
     /// </summary>
     internal static IReadOnlyCollection<string> TopicsFor(HookpipeConfiguration configuration, string brokerId) =>
         configuration.Webhooks.Values
             .SelectMany(webhook => (webhook.To ?? []).Concat((webhook.Route ?? []).SelectMany(rule => rule.To)))
-            .Where(target => target.Topic is not null &&
+            .Where(target => target is { Topic: not null, TopicTemplate: null } &&
                              string.Equals(target.Broker, brokerId, StringComparison.OrdinalIgnoreCase))
             .Select(target => target.Topic!)
             .Distinct()

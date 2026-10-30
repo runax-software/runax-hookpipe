@@ -1,3 +1,4 @@
+using Runax.Hookpipe.Conditions;
 using Runax.Hookpipe.Configuration;
 using Runax.Hookpipe.Diagnostics;
 using Runax.Hookpipe.Hosting;
@@ -10,6 +11,8 @@ namespace Runax.Hookpipe.Webhooks;
 /// <summary>
 /// Handles requests for one webhook: method check, rate limit, validation, routing, envelope
 /// building, and publishing to every target. Reads the webhook's live configuration on each request.
+/// Metadata and topic templates are rendered per message; a target whose topic template fails is
+/// skipped and counted, without affecting the other targets.
 /// </summary>
 internal sealed class WebhookHandler(string webhookId, ILogger logger, HookpipeRuntime runtime)
 {
@@ -33,9 +36,21 @@ internal sealed class WebhookHandler(string webhookId, ILogger logger, HookpipeR
                 .Where(value => value.Value is not null)
                 .ToDictionary(value => value.Key, value => value.Value!.ToString()!, StringComparer.OrdinalIgnoreCase);
 
-            var targets = await RouteEvaluator.ResolveAsync(context, webhookId, webhook, pathParameters, logger);
-            var envelope = await runtime.EnvelopeBuilder.BuildAsync(context, webhookId, webhook, pathParameters);
-            var successCount = await PublishAsync(context, envelope, targets);
+            var evaluation = await CreateEvaluationContextAsync(context, webhook, pathParameters);
+            var targets = RouteEvaluator.Resolve(evaluation, webhook, logger);
+
+            if (!TryRenderMetadata(webhook, evaluation, out var metadata) && targets.Count > 0)
+            {
+                foreach (var target in targets)
+                    HookpipeMetrics.RecordTemplateFailure(target.Broker, "template_unresolved");
+
+                await RespondPublishFailedAsync(context);
+                return;
+            }
+
+            evaluation.Metadata = metadata;
+            var envelope = await runtime.EnvelopeBuilder.BuildAsync(context, webhookId, webhook, metadata);
+            var successCount = await PublishAsync(context, envelope, targets, evaluation);
 
             if (targets.Count == 0 || successCount > 0)
             {
@@ -46,9 +61,7 @@ internal sealed class WebhookHandler(string webhookId, ILogger logger, HookpipeR
             }
             else
             {
-                HookpipeMetrics.RecordRequest(webhookId, context.Request.Method, "500");
-                context.Response.StatusCode = StatusCodes.Status500InternalServerError;
-                await context.Response.WriteAsJsonAsync(new { error = "publish_failed", webhook_id = webhookId });
+                await RespondPublishFailedAsync(context);
             }
         }
         catch (Exception ex)
@@ -58,6 +71,107 @@ internal sealed class WebhookHandler(string webhookId, ILogger logger, HookpipeR
             context.Response.StatusCode = StatusCodes.Status500InternalServerError;
             await context.Response.WriteAsJsonAsync(new { error = "internal_error", webhook_id = webhookId });
         }
+    }
+
+    private async Task RespondPublishFailedAsync(HttpContext context)
+    {
+        HookpipeMetrics.RecordRequest(webhookId, context.Request.Method, "500");
+        context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+        await context.Response.WriteAsJsonAsync(new { error = "publish_failed", webhook_id = webhookId });
+    }
+
+    /// <summary>
+    /// Collects what conditions and templates read. The body is read only when one of them uses
+    /// JSONPath, and parsed on first use.
+    /// </summary>
+    private async Task<EvaluationContext> CreateEvaluationContextAsync(
+        HttpContext context,
+        WebhookConfiguration webhook,
+        IReadOnlyDictionary<string, string> pathParameters)
+    {
+        var headers = context.Request.Headers;
+        string? GetHeader(string name) => headers.TryGetValue(name, out var value) ? value.ToString() : null;
+
+        string? rawBody = null;
+        if (UsesJsonPath(webhook))
+        {
+            context.Request.EnableBuffering();
+            context.Request.Body.Position = 0;
+
+            using var reader = new StreamReader(context.Request.Body, leaveOpen: true);
+            rawBody = await reader.ReadToEndAsync(context.RequestAborted);
+            context.Request.Body.Position = 0;
+        }
+
+        return new EvaluationContext(webhookId, GetHeader, pathParameters, rawBody, () =>
+            logger.LogDebug(
+                "[Hookpipe.Webhook:{WebhookId}] Body is not JSON, so JSONPath conditions and placeholders select nothing",
+                webhookId));
+    }
+
+    private static bool UsesJsonPath(WebhookConfiguration webhook) =>
+        (webhook.Route ?? []).Any(rule => rule.When?.UsesJsonPath == true) ||
+        (webhook.To ?? []).Concat((webhook.Route ?? []).SelectMany(rule => rule.To))
+        .Any(target => target.TopicTemplate?.UsesJsonPath == true) ||
+        webhook.Message.Metadata.Keys.Any(key => webhook.Message.MetadataTemplate(key).UsesJsonPath);
+
+    /// <summary>
+    /// Renders every <c>message.metadata</c> value. Returns false, after logging the first placeholder
+    /// that had no value, when one didn't render.
+    /// </summary>
+    private bool TryRenderMetadata(
+        WebhookConfiguration webhook,
+        EvaluationContext evaluation,
+        out Dictionary<string, string> metadata)
+    {
+        metadata = new Dictionary<string, string>();
+
+        foreach (var key in webhook.Message.Metadata.Keys)
+        {
+            if (webhook.Message.MetadataTemplate(key).TryRender(evaluation, out var value, out var unresolved))
+            {
+                metadata[key] = value;
+                continue;
+            }
+
+            logger.LogWarning(
+                "[Hookpipe.Webhook:{WebhookId}] Not publishing: metadata '{Key}' placeholder '{Placeholder}' has no value",
+                webhookId, key, unresolved!.Text);
+            return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Renders a target's topic when it's a template. Returns false, after logging and counting the
+    /// failure, when a placeholder has no value or the rendered topic isn't allowed.
+    /// </summary>
+    private bool TryRenderTopic(Target target, EvaluationContext evaluation, MessageEnvelope envelope, out string? topic)
+    {
+        topic = target.Topic;
+        if (target.TopicTemplate is not { } template) return true;
+
+        if (!template.TryRender(evaluation, out var rendered, out var unresolved))
+        {
+            logger.LogWarning(
+                "[Hookpipe.Webhook:{WebhookId}] Message '{MessageId}' not published to '{Target}': " +
+                "placeholder '{Placeholder}' has no value", webhookId, envelope.Id, target, unresolved!.Text);
+            HookpipeMetrics.RecordTemplateFailure(target.Broker, "template_unresolved");
+            return false;
+        }
+
+        if (!Target.IsSafeTopic(rendered))
+        {
+            logger.LogWarning(
+                "[Hookpipe.Webhook:{WebhookId}] Message '{MessageId}' not published to '{Target}': the rendered topic " +
+                "may only use letters, digits, '.', '_', and '-'", webhookId, envelope.Id, target);
+            HookpipeMetrics.RecordTemplateFailure(target.Broker, "template_invalid");
+            return false;
+        }
+
+        topic = rendered;
+        return true;
     }
 
     /// <summary>
@@ -135,13 +249,19 @@ internal sealed class WebhookHandler(string webhookId, ILogger logger, HookpipeR
     /// Publishes the envelope to every target in parallel, retrying per the broker's policy.
     /// Returns the number of targets that succeeded.
     /// </summary>
-    private async Task<int> PublishAsync(HttpContext context, MessageEnvelope envelope, IReadOnlyList<Target> targets)
+    private async Task<int> PublishAsync(
+        HttpContext context,
+        MessageEnvelope envelope,
+        IReadOnlyList<Target> targets,
+        EvaluationContext evaluation)
     {
         var successCount = 0;
         var brokers = runtime.ConfigurationProvider.Current.Brokers;
 
         await Task.WhenAll(targets.Select(async target =>
         {
+            if (!TryRenderTopic(target, evaluation, envelope, out var topic)) return;
+
             if (!runtime.Brokers.TryGetValue(target.Broker, out var broker))
             {
                 logger.LogError("[Hookpipe.Webhook:{WebhookId}] Broker '{BrokerId}' isn't running", webhookId,
@@ -158,14 +278,14 @@ internal sealed class WebhookHandler(string webhookId, ILogger logger, HookpipeR
                     await retry.ExecuteAsync(
                         static (state, cancellationToken) =>
                             new ValueTask(state.broker.PublishAsync(state.Topic, state.envelope, cancellationToken)),
-                        (broker, target.Topic, envelope),
+                        (broker, Topic: topic, envelope),
                         context.RequestAborted);
                 }
-                else await broker.PublishAsync(target.Topic, envelope, context.RequestAborted);
+                else await broker.PublishAsync(topic, envelope, context.RequestAborted);
 
                 Interlocked.Increment(ref successCount);
-                logger.LogDebug("[Hookpipe.Webhook:{WebhookId}] Message '{MessageId}' published to '{Target}'",
-                    webhookId, envelope.Id, target);
+                logger.LogDebug("[Hookpipe.Webhook:{WebhookId}] Message '{MessageId}' published to '{Broker}:{Topic}'",
+                    webhookId, envelope.Id, target.Broker, topic);
                 HookpipeMetrics.RecordMessagePublished(webhookId, target.Broker);
             }
             catch (Exception ex)

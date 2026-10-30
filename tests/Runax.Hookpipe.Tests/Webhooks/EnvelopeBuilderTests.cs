@@ -55,7 +55,7 @@ public sealed class EnvelopeBuilderTests
         var context = MakeContext("POST", "/test");
         var webhook = MakeWebhook(includeBody: false);
 
-        var envelope = await _builder.BuildAsync(context, WebhookId, webhook);
+        var envelope = await _builder.BuildAsync(context, WebhookId, webhook, webhook.Message.Metadata);
 
         envelope.Id.Should().NotBeNullOrEmpty();
         envelope.WebhookId.Should().Be(WebhookId);
@@ -70,7 +70,7 @@ public sealed class EnvelopeBuilderTests
         var context = MakeContext(body: """{"key":"value"}""");
         var webhook = MakeWebhook(includeBody: true);
 
-        var envelope = await _builder.BuildAsync(context, WebhookId, webhook);
+        var envelope = await _builder.BuildAsync(context, WebhookId, webhook, webhook.Message.Metadata);
 
         envelope.Body.Should().NotBeNull();
         var json = (JsonElement)envelope.Body!;
@@ -83,7 +83,7 @@ public sealed class EnvelopeBuilderTests
         var context = MakeContext(body: "plain text body");
         var webhook = MakeWebhook(includeBody: true);
 
-        var envelope = await _builder.BuildAsync(context, WebhookId, webhook);
+        var envelope = await _builder.BuildAsync(context, WebhookId, webhook, webhook.Message.Metadata);
 
         envelope.Body.Should().Be("plain text body");
     }
@@ -94,7 +94,7 @@ public sealed class EnvelopeBuilderTests
         var context = MakeContext(body: """{"key":"value"}""");
         var webhook = MakeWebhook(includeBody: false);
 
-        var envelope = await _builder.BuildAsync(context, WebhookId, webhook);
+        var envelope = await _builder.BuildAsync(context, WebhookId, webhook, webhook.Message.Metadata);
 
         envelope.Body.Should().BeNull();
     }
@@ -107,7 +107,7 @@ public sealed class EnvelopeBuilderTests
         context.Request.Headers["X-Other"] = "other-value";
         var webhook = MakeWebhook(includeBody: false, includeHeaders: true);
 
-        var envelope = await _builder.BuildAsync(context, WebhookId, webhook);
+        var envelope = await _builder.BuildAsync(context, WebhookId, webhook, webhook.Message.Metadata);
 
         envelope.Headers.Should().ContainKey("X-Custom");
         envelope.Headers.Should().ContainKey("X-Other");
@@ -121,7 +121,7 @@ public sealed class EnvelopeBuilderTests
         context.Request.Headers["X-Unwanted"] = "no";
         var webhook = MakeWebhook(includeBody: false, includeHeaders: true, headerNames: ["X-Wanted"]);
 
-        var envelope = await _builder.BuildAsync(context, WebhookId, webhook);
+        var envelope = await _builder.BuildAsync(context, WebhookId, webhook, webhook.Message.Metadata);
 
         envelope.Headers.Should().ContainKey("X-Wanted");
         envelope.Headers.Should().NotContainKey("X-Unwanted");
@@ -134,7 +134,7 @@ public sealed class EnvelopeBuilderTests
         context.Request.Headers["X-Custom"] = "value";
         var webhook = MakeWebhook(includeBody: false, includeHeaders: false);
 
-        var envelope = await _builder.BuildAsync(context, WebhookId, webhook);
+        var envelope = await _builder.BuildAsync(context, WebhookId, webhook, webhook.Message.Metadata);
 
         envelope.Headers.Should().BeEmpty();
     }
@@ -147,21 +147,21 @@ public sealed class EnvelopeBuilderTests
             includeBody: false,
             metadata: new Dictionary<string, string> { ["env"] = "production" });
 
-        var envelope = await _builder.BuildAsync(context, WebhookId, webhook);
+        var envelope = await _builder.BuildAsync(context, WebhookId, webhook, webhook.Message.Metadata);
 
         envelope.Metadata.Should().ContainKey("env").WhoseValue.Should().Be("production");
     }
 
     [Fact]
-    public async Task BuildAsync_PathParamMetadata_Resolved()
+    public async Task BuildAsync_RenderedMetadata_IsUsedAsGiven()
     {
         var context = MakeContext(path: "/ingest/github");
         var webhook = MakeWebhook(
             includeBody: false,
             metadata: new Dictionary<string, string> { ["source"] = "{source}" });
-        var pathParams = new Dictionary<string, string> { ["source"] = "github" };
+        var rendered = new Dictionary<string, string> { ["source"] = "github" };
 
-        var envelope = await _builder.BuildAsync(context, WebhookId, webhook, pathParams);
+        var envelope = await _builder.BuildAsync(context, WebhookId, webhook, rendered);
 
         envelope.Metadata.Should().ContainKey("source").WhoseValue.Should().Be("github");
     }
@@ -172,7 +172,7 @@ public sealed class EnvelopeBuilderTests
         var context = MakeContext();
         var webhook = MakeWebhook(includeBody: false);
 
-        var envelope = await _builder.BuildAsync(context, WebhookId, webhook);
+        var envelope = await _builder.BuildAsync(context, WebhookId, webhook, webhook.Message.Metadata);
 
         envelope.Metadata.Should().BeEmpty();
     }
@@ -184,8 +184,8 @@ public sealed class EnvelopeBuilderTests
         var context2 = MakeContext();
         var webhook = MakeWebhook(includeBody: false);
 
-        var envelope1 = await _builder.BuildAsync(context1, WebhookId, webhook);
-        var envelope2 = await _builder.BuildAsync(context2, WebhookId, webhook);
+        var envelope1 = await _builder.BuildAsync(context1, WebhookId, webhook, webhook.Message.Metadata);
+        var envelope2 = await _builder.BuildAsync(context2, WebhookId, webhook, webhook.Message.Metadata);
 
         envelope1.Id.Should().NotBe(envelope2.Id);
     }

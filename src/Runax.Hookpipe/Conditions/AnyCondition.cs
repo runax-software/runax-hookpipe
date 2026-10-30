@@ -28,6 +28,6 @@ public sealed class AnyCondition : Condition
     internal override IEnumerable<string> PathParameters =>
         Conditions.SelectMany(condition => condition.PathParameters);
 
-    internal override bool Evaluate(ConditionContext context) =>
+    internal override bool Evaluate(EvaluationContext context) =>
         Conditions.Any(condition => condition.Evaluate(context));
 }

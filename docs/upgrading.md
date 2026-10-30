@@ -156,3 +156,4 @@ webhooks:
 | `endpoint_id` label on the other metrics | `webhook_id` |
 | Log prefixes `[Hookpipe.Endpoint:…]`, `[Hookpipe.Sink:…]` | `[Hookpipe.Webhook:…]`, `[Hookpipe.Broker:…]` |
 | Routes matched case-sensitively | ASP.NET Core routing, which ignores case in literal segments |
+| A metadata value's `{name}` that isn't a path parameter is kept as written | Every `{name}` must be a path parameter, `{webhook_id}`, `{header.Name}`, or `{$.path}`; write `{{` and `}}` for literal braces |

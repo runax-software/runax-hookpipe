@@ -10,6 +10,7 @@ Hookpipe exposes Prometheus metrics at `GET /metrics`.
 | `hookpipe_messages_published_total` | counter | webhook_id, broker_id | Messages published to brokers |
 | `hookpipe_publish_errors_total` | counter | webhook_id, broker_id | Failed publishes (after retries) |
 | `hookpipe_validation_failures_total` | counter | webhook_id, validator_type | Validation failures (auth/signature rejected) |
+| `hookpipe_template_failures_total` | counter | broker_id, reason | Targets skipped because a [template](configuration.md#templates) failed: `template_unresolved` (a placeholder had no value) or `template_invalid` (the rendered topic isn't allowed) |
 | `hookpipe_request_duration_seconds` | histogram | webhook_id | Request processing duration |
 
 Topics aren't a label: they'd make the label set unbounded.

@@ -332,7 +332,17 @@ route:
 | `{$<jsonpath>}` | One value selected from the body, for example `{$.customer.id}` |
 
 **Where templates are used:** target `topic`, `partition_key`, and `order_by`, the broker's
-`publish.order_by`, `message.metadata` values, and `streams.*.event.name`.
+`publish.order_by`, `message.metadata` values, and `streams.*.event.name`. `{topic}` only makes
+sense where a topic exists already (ordering keys, event names), and `{metadata.<key>}` can't be
+used in metadata itself.
+
+**Literal braces.** A `{` starts a placeholder only when a letter, `_`, or `$` follows it and it
+doesn't follow a `$`, so JSON text, `{}`, and the `${NAME}` left by the `$${` escape stay as
+written. `{{` and `}}` are literal braces everywhere else. Condition values only take
+path-parameter placeholders, and `regex` patterns are never templates.
+
+**Metadata that doesn't resolve** fails the message for every target, because every target gets
+the same envelope. Each target counts a `template_unresolved`.
 
 **JSONPath templates:**
 

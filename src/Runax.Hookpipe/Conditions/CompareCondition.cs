@@ -18,6 +18,7 @@ public sealed class CompareCondition : Condition
 
     private readonly JsonPath? _jsonPath;
     private readonly Regex? _regex;
+    private readonly Template?[] _operandTemplates;
 
     /// <summary>
     /// Creates the comparison, parsing a JSONPath or regex up front.
@@ -29,9 +30,14 @@ public sealed class CompareCondition : Condition
     /// The values compared with: one for most operators, one or more for <see cref="ConditionOperator.In"/>
     /// and <see cref="ConditionOperator.NotIn"/>, a boolean for <see cref="ConditionOperator.Exists"/>.
     /// </param>
+    /// <remarks>
+    /// Text values of <c>eq</c>, <c>ne</c>, <c>in</c>, <c>not_in</c>, <c>contains</c>, <c>starts_with</c>,
+    /// and <c>ends_with</c> can hold path-parameter placeholders, such as <c>{tenant}</c>, which are
+    /// filled in per request.
+    /// </remarks>
     /// <exception cref="ArgumentException">
-    /// Thrown when the selector is empty, the JSONPath or regex doesn't parse, or the operands don't
-    /// fit the operator.
+    /// Thrown when the selector is empty, the JSONPath or regex doesn't parse, the operands don't fit
+    /// the operator, or a value has a placeholder that isn't a path parameter.
     /// </exception>
     public CompareCondition(
         ConditionSource source,
@@ -51,6 +57,7 @@ public sealed class CompareCondition : Condition
 
         if (source == ConditionSource.JsonPath) _jsonPath = ParseJsonPath(selector);
         if (@operator == ConditionOperator.Regex) _regex = ParseRegex(operands[0].Text);
+        _operandTemplates = ParseOperandTemplates(@operator, operands);
     }
 
     /// <summary>
@@ -78,44 +85,63 @@ public sealed class CompareCondition : Condition
     internal override bool UsesJsonPath => Source == ConditionSource.JsonPath;
 
     internal override IEnumerable<string> PathParameters =>
-        Source == ConditionSource.Path ? [Selector] : [];
+        (Source == ConditionSource.Path ? [Selector] : Enumerable.Empty<string>())
+        .Concat(_operandTemplates.SelectMany(template => template?.Placeholders ?? [])
+            .Select(placeholder => placeholder.Name));
 
-    internal override bool Evaluate(ConditionContext context)
+    internal override bool Evaluate(EvaluationContext context)
     {
         var selected = Select(context);
+        var operands = RenderOperands(context);
 
         return Operator switch
         {
             ConditionOperator.Exists =>
                 selected.Any(value => value.Kind != SelectedKind.Null) ==
-                (Operands[0].TryGetBoolean(out var exists) && exists),
+                (operands[0].TryGetBoolean(out var exists) && exists),
             ConditionOperator.Ne =>
-                selected.Count > 0 && selected.Any(value => !AreEqual(value, Operands[0])),
+                selected.Count > 0 && selected.Any(value => !AreEqual(value, operands[0])),
             ConditionOperator.NotIn =>
-                selected.Count > 0 && selected.Any(value => Operands.All(operand => !AreEqual(value, operand))),
-            _ => selected.Any(Matches),
+                selected.Count > 0 && selected.Any(value => operands.All(operand => !AreEqual(value, operand))),
+            _ => selected.Any(value => Matches(value, operands)),
         };
     }
 
-    private bool Matches(SelectedValue value) => Operator switch
+    private bool Matches(SelectedValue value, IReadOnlyList<ConditionValue> operands) => Operator switch
     {
-        ConditionOperator.Eq => AreEqual(value, Operands[0]),
-        ConditionOperator.In => Operands.Any(operand => AreEqual(value, operand)),
+        ConditionOperator.Eq => AreEqual(value, operands[0]),
+        ConditionOperator.In => operands.Any(operand => AreEqual(value, operand)),
         ConditionOperator.Gt => Compare(value) is > 0,
         ConditionOperator.Gte => Compare(value) is >= 0,
         ConditionOperator.Lt => Compare(value) is < 0,
         ConditionOperator.Lte => Compare(value) is <= 0,
         ConditionOperator.Contains => HasText(value) &&
-                                      value.Text!.Contains(Operands[0].Text, StringComparison.OrdinalIgnoreCase),
+                                      value.Text!.Contains(operands[0].Text, StringComparison.OrdinalIgnoreCase),
         ConditionOperator.StartsWith => HasText(value) &&
-                                        value.Text!.StartsWith(Operands[0].Text, StringComparison.OrdinalIgnoreCase),
+                                        value.Text!.StartsWith(operands[0].Text, StringComparison.OrdinalIgnoreCase),
         ConditionOperator.EndsWith => HasText(value) &&
-                                      value.Text!.EndsWith(Operands[0].Text, StringComparison.OrdinalIgnoreCase),
+                                      value.Text!.EndsWith(operands[0].Text, StringComparison.OrdinalIgnoreCase),
         ConditionOperator.Regex => HasText(value) && IsRegexMatch(value.Text!),
         _ => false,
     };
 
-    private List<SelectedValue> Select(ConditionContext context)
+    private IReadOnlyList<ConditionValue> RenderOperands(EvaluationContext context)
+    {
+        if (_operandTemplates.All(template => template is null)) return Operands;
+
+        var rendered = new ConditionValue[Operands.Count];
+        for (var index = 0; index < Operands.Count; index++)
+        {
+            rendered[index] = _operandTemplates[index] is { } template &&
+                              template.TryRender(context, out var text, out _)
+                ? Operands[index] with { Text = text }
+                : Operands[index];
+        }
+
+        return rendered;
+    }
+
+    private List<SelectedValue> Select(EvaluationContext context)
     {
         switch (Source)
         {
@@ -225,7 +251,44 @@ public sealed class CompareCondition : Condition
     private static bool IsBoolean(ConditionValue operand) =>
         operand.Kind is ConditionValueKind.Boolean or ConditionValueKind.Untyped && operand.TryGetBoolean(out _);
 
-    private static JsonPath ParseJsonPath(string selector)
+    /// <summary>
+    /// Parses the text values of the text operators as templates. Only path parameters can be used,
+    /// since a condition's value is fixed for the webhook, and a value without placeholders keeps its
+    /// text, so <c>{}</c> or <c>{{x}}</c> stay as written.
+    /// </summary>
+    private static Template?[] ParseOperandTemplates(ConditionOperator @operator, IReadOnlyList<ConditionValue> operands)
+    {
+        var templates = new Template?[operands.Count];
+        if (@operator is not (ConditionOperator.Eq or ConditionOperator.Ne or ConditionOperator.In or
+            ConditionOperator.NotIn or ConditionOperator.Contains or ConditionOperator.StartsWith or
+            ConditionOperator.EndsWith))
+            return templates;
+
+        for (var index = 0; index < operands.Count; index++)
+        {
+            if (operands[index].Kind is not (ConditionValueKind.Text or ConditionValueKind.Untyped) ||
+                !operands[index].Text.Contains('{'))
+                continue;
+
+            var template = Template.Parse(operands[index].Text);
+            if (!template.HasPlaceholders) continue;
+
+            if (template.Placeholders.FirstOrDefault(placeholder => placeholder.Source != TemplateSource.PathParameter)
+                is { } other)
+                throw new ArgumentException(
+                    $"placeholder '{other.Text}': condition values can only use path parameters, such as {{tenant}}");
+
+            if (template.Placeholders.FirstOrDefault(placeholder => placeholder.Default is not null) is { } withDefault)
+                throw new ArgumentException(
+                    $"placeholder '{withDefault.Text}': path parameters are always set, so they take no default");
+
+            templates[index] = template;
+        }
+
+        return templates;
+    }
+
+    internal static JsonPath ParseJsonPath(string selector)
     {
         if (!selector.StartsWith('$'))
             throw new ArgumentException($"JSONPath '{selector}' must start with '$', for example '$.{selector}'");

@@ -101,8 +101,8 @@ webhooks:
 Interpolated values count as secrets: they never appear in error messages or logs. Targets
 (`to`) can't be interpolated.
 
-Single braces, `{source}`, aren't interpolation. They're filled in per request from path
-parameters (see `message.metadata` below).
+Single braces, `{source}`, aren't interpolation. They're [templates](#templates), filled in for
+each message.
 
 ## `server`
 
@@ -140,6 +140,10 @@ stream key, and so on ([brokers.md](brokers.md)). The loader checks that every t
 exists, that brokers which need a topic get one, and that SQS and SNS topics are in the broker's
 map.
 
+A topic can be a [template](#templates), such as `kafka:payments.{$.type}` or
+`rabbit:{source}.events`. SQS and SNS map keys can't be checked at load when the topic is a
+template; a rendered key that isn't in the map fails that publish.
+
 `to` takes one target or a list. `to: none` (or `to: []`) means "acknowledge and publish
 nothing". `none` can't be a broker ID.
 
@@ -153,7 +157,7 @@ nothing". `none` can't be a broker ID.
 | `rate_limit` | `requests` per `window` (fixed window). Over the limit gets 429. | none |
 | `message.body` | Include the request body | `true` |
 | `message.headers` | `true` for every header, `false` for none, or a list of names | `false` |
-| `message.metadata` | Values added to the envelope. `{name}` is replaced with the path parameter `name`. | none |
+| `message.metadata` | Values added to the envelope. Values are [templates](#templates), such as `"{source}"` or `"{header.X-Tenant:-none}"`. | none |
 | `to` | Targets for every request. Use either `to` or `route`. | — |
 | `route` | Ordered rules `{ when?, to }`. The first rule whose `when` matches picks the targets. The last rule must have no `when`. | — |
 
@@ -169,7 +173,51 @@ Routes must be unique, and none may shadow the service's own `/health`, `/health
 | 404 | The webhook was removed by a reload | — |
 | 405 | The method isn't in `methods` | — |
 | 429 | Over `rate_limit` | `{"error":"rate_limit_exceeded","webhook_id":…}` |
-| 500 | Every target failed | `{"error":"publish_failed","webhook_id":…}` |
+| 500 | Every target failed, or a metadata template didn't resolve | `{"error":"publish_failed","webhook_id":…}` |
+
+## Templates
+
+`{…}` fills in a value for each message, in target topics and `message.metadata` values:
+
+| Placeholder | Value |
+| --- | --- |
+| `{name}` | The path parameter `name`, such as `{source}` |
+| `{webhook_id}` | The webhook's ID |
+| `{metadata.key}` | A `message.metadata` value. Topics only. |
+| `{header.Name}` | A request header; the name is case-insensitive |
+| `{$.json.path}` | One value from the JSON body, through a JSONPath such as `{$.customer.id}` |
+
+```yaml
+webhooks:
+  ingest:
+    path: ingest/{source}
+    message:
+      metadata:
+        source: "{source}"
+        tenant: "{header.X-Tenant:-shared}"
+    to:
+      - "kafka:payments.{$.type:-other}"     # payments.invoice.paid
+      - "rabbit:{metadata.tenant}.{source}"  # acme.github
+```
+
+- **Defaults.** `{$.type:-other}` uses `other` when the placeholder has no value. It's the same
+  `:-` as `${VAR:-default}`.
+- **No value.** A placeholder has no value when the header is missing or empty, or the JSONPath
+  selects nothing, `null`, an empty string, several values, or an object or array. Without a
+  default, the message isn't published to that target. Other targets are unaffected, and the
+  failure is logged and counted in `hookpipe_template_failures_total` as `template_unresolved`.
+  A metadata value without a value fails every target, since they all get the same envelope.
+- **Rendered topics** may only use letters, digits, `.`, `_`, and `-`. Anything else fails that
+  target as `template_invalid`, which keeps request values from adding RabbitMQ wildcards, URL
+  path segments, or odd Kafka topic names. A body-derived topic still lets the sender pick among
+  topic names, so prefer [route rules](#routing-with-conditions) unless the value is signed and
+  comes from a small known set.
+- **Literal braces.** A `{` starts a placeholder only when a letter, `_`, or `$` follows it, and
+  not right after a `$`, so `{}`, JSON text, and the `${NAME}` that `$${` leaves are kept as
+  written. Write `{{` and `}}` for a literal `{` and `}` anywhere else.
+- **Checked at load.** Every placeholder must be one of the forms above, name a path parameter
+  the route has or a metadata key the webhook sets, and parse if it's a JSONPath. `{topic}` is
+  reserved for ordering keys, which come with publish workers, so topics and metadata can't use it.
 
 ## Routing with conditions
 
@@ -207,6 +255,10 @@ A condition names one source and one operator:
   `{ jsonpath: "$.items[?@.qty > 10 && @.sku == 'A1']", exists: true }`.
 - **Non-JSON bodies.** When the body isn't JSON, `jsonpath` conditions don't match, except
   `exists: false`.
+- **Path parameters in values.** Text values of `eq`, `ne`, `in`, `not_in`, `contains`,
+  `starts_with`, and `ends_with` can hold path-parameter placeholders:
+  `{ header: X-Tenant, eq: "{tenant}" }`. Other placeholders and defaults aren't allowed there,
+  and `regex` patterns are never templates, so `a{2,3}` keeps its meaning.
 - **Checked at load.** Every JSONPath and regex is parsed when the config loads, and operator
   values must have the right type (`gt` needs a number, `in` needs a list).
 

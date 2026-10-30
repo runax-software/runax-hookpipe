@@ -86,6 +86,8 @@ public sealed class ApiMetricsTests
                 to: console
               broken-{{suffix}}:
                 to: relay
+              templated-{{suffix}}:
+                to: "relay:{$.type}"
             """;
 
         using var host = new TestApiHost(yaml, new Dictionary<string, string?> { [tokenEnv] = "secret-token" });
@@ -99,21 +101,26 @@ public sealed class ApiMetricsTests
         authorized.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", "secret-token");
         var accepted = await client.SendAsync(authorized);
         var failed = await client.PostAsync($"/webhooks/broken-{suffix}", new StringContent("{}"));
+        var unresolved = await client.PostAsync($"/webhooks/templated-{suffix}", new StringContent("{}"));
 
         unauthorized.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         accepted.StatusCode.Should().Be(HttpStatusCode.Accepted);
         failed.StatusCode.Should().Be(HttpStatusCode.InternalServerError);
+        unresolved.StatusCode.Should().Be(HttpStatusCode.InternalServerError);
 
         var metrics = await client.GetStringAsync("/metrics");
         metrics.Should().Contain("# TYPE hookpipe_requests_total counter");
         metrics.Should().Contain("# TYPE hookpipe_messages_published_total counter");
         metrics.Should().Contain("# TYPE hookpipe_publish_errors_total counter");
         metrics.Should().Contain("# TYPE hookpipe_validation_failures_total counter");
+        metrics.Should().Contain("# TYPE hookpipe_template_failures_total counter");
         metrics.Should().Contain("# TYPE hookpipe_request_duration_seconds histogram");
         metrics.Should().NotContain("runax_hookpipe_");
         TestApiHost.AssertMetric(metrics, "hookpipe_validation_failures_total", 1,
             ("webhook_id", $"secured-{suffix}"), ("validator_type", "bearer"));
         TestApiHost.AssertMetric(metrics, "hookpipe_requests_total", 1,
             ("webhook_id", $"secured-{suffix}"), ("status_code", "401"));
+        TestApiHost.AssertMetric(metrics, "hookpipe_template_failures_total", 1,
+            ("broker_id", "relay"), ("reason", "template_unresolved"));
     }
 }
