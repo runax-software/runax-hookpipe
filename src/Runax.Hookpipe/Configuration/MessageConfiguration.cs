@@ -1,3 +1,5 @@
+using Runax.Hookpipe.Conditions;
+
 namespace Runax.Hookpipe.Configuration;
 
 /// <summary>
@@ -22,7 +24,20 @@ public sealed class MessageConfiguration
     public IReadOnlyList<string>? HeaderNames { get; init; }
 
     /// <summary>
-    /// Values attached to the message. A value can name a path parameter, such as <c>{source}</c>.
+    /// Values attached to the message. Values are templates, so they can hold a path parameter such as
+    /// <c>{source}</c>, <c>{webhook_id}</c>, <c>{header.X-Name}</c>, or <c>{$.json.path}</c>.
     /// </summary>
     public IReadOnlyDictionary<string, string> Metadata { get; init; } = new Dictionary<string, string>();
+
+    /// <summary>
+    /// The parsed <see cref="Metadata"/> values, keyed like it. Filled in by the loader; a key missing
+    /// here is parsed when the message is built.
+    /// </summary>
+    internal IReadOnlyDictionary<string, Template> MetadataTemplates { get; init; } = new Dictionary<string, Template>();
+
+    /// <summary>
+    /// The parsed template for a metadata key.
+    /// </summary>
+    internal Template MetadataTemplate(string key) =>
+        MetadataTemplates.TryGetValue(key, out var template) ? template : Template.Parse(Metadata[key]);
 }

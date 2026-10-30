@@ -478,7 +478,14 @@ public sealed class ConfigurationLoaderTests
     [InlineData("console:events", "'stdout' brokers take no topic")]
     [InlineData("\"kafka:\"", "has an empty topic")]
     [InlineData("\":events\"", "names no broker")]
-    [InlineData("\"kafka:ingest.{source}\"", "templates in topics aren't supported yet")]
+    [InlineData("\"kafka:ingest.{source}\"", "path parameter 'source' isn't in the webhook's path 'a'")]
+    [InlineData("\"kafka:ingest.{topic}\"", "can't be used in a topic")]
+    [InlineData("\"kafka:a/{webhook_id}\"", "'a/' can't be part of a templated topic")]
+    [InlineData("\"kafka:x.{metadata.tenant}\"", "metadata key 'tenant' isn't in the webhook's message.metadata")]
+    [InlineData("\"kafka:x.{bad name}\"", "isn't valid")]
+    [InlineData("\"kafka:x.{$.a b}\"", "invalid JSONPath")]
+    [InlineData("\"kafka:x.{$.type:-a/b}\"", "the default in '{$.type:-a/b}'")]
+    [InlineData("\"kafka:a{{b}}\"", "can't contain '{' or '}'")]
     [InlineData("[console, none]", "'none' can't be combined with other targets")]
     [InlineData("{ broker: kafka, topic: payments, partition_key: \"{webhook_id}\" }", "prerequisite P2")]
     [InlineData("sqs:unmapped", "topic 'unmapped' isn't in brokers.sqs.settings.topic_queue_url_map")]
@@ -501,6 +508,98 @@ public sealed class ConfigurationLoaderTests
               a:
                 to: {{to}}
             """).Should().ContainSingle().Which.Should().Contain(expected);
+    }
+
+    [Fact]
+    public void LoadFromString_TemplatedTopics_ParseTheirTemplates()
+    {
+        var webhook = Load("""
+            brokers:
+              kafka:
+                type: kafka
+                settings:
+                  bootstrap_servers: localhost:9092
+              sqs:
+                type: sqs
+                settings:
+                  topic_queue_url_map:
+                    orders: http://localhost:4566/000000000000/orders
+            webhooks:
+              ingest:
+                path: ingest/{source}
+                message:
+                  metadata:
+                    tenant: "{header.X-Tenant:-none}"
+                to:
+                  - "kafka:payments.{$.type:-other}"
+                  - "kafka:{metadata.tenant}.{source}"
+                  - "sqs:{$.queue}"
+                  - kafka:static
+            """).Webhooks["ingest"];
+
+        webhook.To!.Select(target => target.TopicTemplate?.Text)
+            .Should().Equal("payments.{$.type:-other}", "{metadata.tenant}.{source}", "{$.queue}", null);
+        webhook.To![0].TopicTemplate!.Placeholders.Single().Default.Should().Be("other");
+        webhook.Message.MetadataTemplates["tenant"].Placeholders.Single().Source.Should().Be(TemplateSource.Header);
+    }
+
+    [Theory]
+    [InlineData("\"{topic}\"", "placeholder '{topic}' can't be used in metadata values")]
+    [InlineData("\"{metadata.other}\"", "metadata values can't refer to other metadata")]
+    [InlineData("\"{tenant}\"", "path parameter 'tenant' isn't in the webhook's path 'ingest/{source}'")]
+    [InlineData("\"{source\"", "has no closing '}'")]
+    public void LoadFromString_InvalidMetadataTemplate_Throws(string value, string expected)
+    {
+        Errors($$"""
+            brokers:
+              console:
+                type: stdout
+            webhooks:
+              ingest:
+                path: ingest/{source}
+                message:
+                  metadata:
+                    other: x
+                    value: {{value}}
+                to: console
+            """).Should().ContainSingle().Which.Should()
+            .StartWith("webhooks.ingest.message.metadata.value:").And.Contain(expected);
+    }
+
+    [Fact]
+    public void LoadFromString_RouteTargetTemplate_ChecksPathParameters()
+    {
+        Errors("""
+            brokers:
+              kafka:
+                type: kafka
+                settings:
+                  bootstrap_servers: localhost:9092
+            webhooks:
+              ingest:
+                route:
+                  - when: { header: X-Event, eq: "{tenant}" }
+                    to: "kafka:events.{source}"
+                  - to: kafka:other
+            """).Should().BeEquivalentTo(
+            "webhooks.ingest.route[0].when: path parameter 'tenant' isn't in the webhook's path 'ingest'",
+            "webhooks.ingest.route[0].to: placeholder '{source}': path parameter 'source' isn't in the webhook's path 'ingest'");
+    }
+
+    [Fact]
+    public void LoadFromString_ConditionValueWithOtherPlaceholder_Throws()
+    {
+        Errors("""
+            brokers:
+              console:
+                type: stdout
+            webhooks:
+              a:
+                route:
+                  - when: { header: X-Event, eq: "{header.X-Other}" }
+                    to: console
+                  - to: none
+            """).Should().ContainSingle().Which.Should().Contain("condition values can only use path parameters");
     }
 
     [Fact]

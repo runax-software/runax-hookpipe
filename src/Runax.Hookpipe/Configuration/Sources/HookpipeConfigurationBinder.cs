@@ -22,7 +22,7 @@ internal sealed partial class HookpipeConfigurationBinder(ConfigurationErrors er
 
     private static readonly string[] SourceKeys = ["jsonpath", "header", "path"];
     private static readonly string[] CombinatorKeys = ["all", "any", "not"];
-    private static readonly HashSet<string> ReservedPathParameters = ["webhook_id", "topic"];
+    private static readonly HashSet<string> ReservedPathParameters = new(["webhook_id", "topic"], StringComparer.OrdinalIgnoreCase);
 
     private static readonly Dictionary<string, ConditionOperator> OperatorKeys =
         Enum.GetValues<ConditionOperator>().ToDictionary(
@@ -358,13 +358,19 @@ internal sealed partial class HookpipeConfigurationBinder(ConfigurationErrors er
         }
 
         var metadata = new Dictionary<string, string>();
+        var metadataTemplates = new Dictionary<string, Template>();
         if (map.Get("metadata") is { } metadataNode)
         {
             if (metadataNode is ConfigurationMapping metadataMap)
             {
                 foreach (var (key, valueNode) in metadataMap.Entries)
-                    if (_reader.String(valueNode) is { } value)
-                        metadata[key] = value;
+                {
+                    if (_reader.String(valueNode) is not { } value) continue;
+
+                    metadata[key] = value;
+                    if (BindTemplate(valueNode, value, "metadata values") is { } template)
+                        metadataTemplates[key] = template;
+                }
             }
             else
             {
@@ -379,7 +385,36 @@ internal sealed partial class HookpipeConfigurationBinder(ConfigurationErrors er
             IncludeHeaders = includeHeaders,
             HeaderNames = headerNames,
             Metadata = metadata,
+            MetadataTemplates = metadataTemplates,
         };
+    }
+
+    /// <summary>
+    /// Parses a template, reporting syntax errors and the placeholders the place doesn't allow:
+    /// <c>{topic}</c> anywhere here, and <c>{metadata.key}</c> in metadata itself.
+    /// </summary>
+    private Template? BindTemplate(ConfigurationNode node, string text, string place)
+    {
+        Template template;
+        try
+        {
+            template = Template.Parse(text);
+        }
+        catch (ArgumentException ex)
+        {
+            errors.Add(node.Path, IsSecret(node) ? "invalid interpolated value" : ex.Message);
+            return null;
+        }
+
+        foreach (var placeholder in template.Placeholders)
+        {
+            if (placeholder.Source == TemplateSource.Topic)
+                errors.Add(node.Path, $"placeholder '{placeholder.Text}' can't be used in {place}");
+            else if (placeholder.Source == TemplateSource.Metadata && place == "metadata values")
+                errors.Add(node.Path, $"placeholder '{placeholder.Text}': metadata values can't refer to other metadata");
+        }
+
+        return template;
     }
 
     private List<RouteRule>? BindRoute(ConfigurationNode node)
@@ -494,13 +529,48 @@ internal sealed partial class HookpipeConfigurationBinder(ConfigurationErrors er
             return null;
         }
 
-        if (target.Topic.Contains('{') || target.Topic.Contains('}'))
+        if (!target.Topic.Contains('{') && !target.Topic.Contains('}')) return target;
+
+        Template template;
+        try
         {
-            errors.Add(path, $"topic '{target.Topic}': templates in topics aren't supported yet");
+            template = Template.Parse(target.Topic);
+        }
+        catch (ArgumentException ex)
+        {
+            errors.Add(path, $"topic '{target.Topic}': {ex.Message}");
             return null;
         }
 
-        return target;
+        if (!template.HasPlaceholders)
+        {
+            errors.Add(path, $"topic '{target.Topic}' can't contain '{{' or '}}'");
+            return null;
+        }
+
+        var valid = true;
+        foreach (var placeholder in template.Placeholders.Where(placeholder => placeholder.Source == TemplateSource.Topic))
+        {
+            errors.Add(path, $"topic '{target.Topic}': placeholder '{placeholder.Text}' can't be used in a topic");
+            valid = false;
+        }
+
+        foreach (var literal in template.Literals.Where(literal => literal.Length > 0 && !Target.IsSafeTopic(literal)))
+        {
+            errors.Add(path, $"topic '{target.Topic}': '{literal}' can't be part of a templated topic; " +
+                             "rendered topics may only use letters, digits, '.', '_', and '-'");
+            valid = false;
+        }
+
+        foreach (var placeholder in template.Placeholders.Where(placeholder =>
+                     placeholder.Default is { Length: > 0 } fallback && !Target.IsSafeTopic(fallback)))
+        {
+            errors.Add(path, $"topic '{target.Topic}': the default in '{placeholder.Text}' may only use " +
+                             "letters, digits, '.', '_', and '-'");
+            valid = false;
+        }
+
+        return valid ? target with { TopicTemplate = template } : null;
     }
 
     private Condition? BindCondition(ConfigurationNode node, int depth)
@@ -631,10 +701,19 @@ internal sealed partial class HookpipeConfigurationBinder(ConfigurationErrors er
             var parameters = CheckRoute(id, webhook, configuration.Server.Paths.Webhooks, path, routes);
 
             foreach (var (rule, index) in (webhook.Route ?? []).Select((rule, index) => (rule, index)))
-                foreach (var parameter in rule.When?.PathParameters ?? [])
+            {
+                foreach (var parameter in (rule.When?.PathParameters ?? []).Distinct(StringComparer.OrdinalIgnoreCase))
                     if (!parameters.Contains(parameter))
                         errors.Add(path.Child("route").Item(index).Child("when"),
                             $"path parameter '{parameter}' isn't in the webhook's path '{webhook.Path}'");
+
+                CheckTemplateReferences(rule.To, webhook, parameters, path.Child("route").Item(index).Child("to"));
+            }
+
+            CheckTemplateReferences(webhook.To ?? [], webhook, parameters, path.Child("to"));
+
+            foreach (var (key, template) in webhook.Message.MetadataTemplates)
+                CheckPlaceholders(template, webhook, parameters, path.Child("message").Child("metadata").Child(key));
 
             resolvedWebhooks[id] = new WebhookConfiguration
             {
@@ -653,6 +732,38 @@ internal sealed partial class HookpipeConfigurationBinder(ConfigurationErrors er
         }
 
         return new HookpipeConfiguration { Server = configuration.Server, Brokers = configuration.Brokers, Webhooks = resolvedWebhooks };
+    }
+
+    private void CheckTemplateReferences(
+        IReadOnlyList<Target> targets,
+        WebhookConfiguration webhook,
+        HashSet<string> parameters,
+        ConfigurationNodePath path)
+    {
+        foreach (var target in targets)
+            if (target.TopicTemplate is { } template)
+                CheckPlaceholders(template, webhook, parameters, path);
+    }
+
+    /// <summary>
+    /// Reports placeholders that name a path parameter the route doesn't have, or a metadata key the
+    /// webhook doesn't set.
+    /// </summary>
+    private void CheckPlaceholders(
+        Template template,
+        WebhookConfiguration webhook,
+        HashSet<string> parameters,
+        ConfigurationNodePath path)
+    {
+        foreach (var placeholder in template.Placeholders)
+        {
+            if (placeholder.Source == TemplateSource.PathParameter && !parameters.Contains(placeholder.Name))
+                errors.Add(path, $"placeholder '{placeholder.Text}': path parameter '{placeholder.Name}' isn't in " +
+                                 $"the webhook's path '{webhook.Path}'");
+            else if (placeholder.Source == TemplateSource.Metadata && !webhook.Message.Metadata.ContainsKey(placeholder.Name))
+                errors.Add(path, $"placeholder '{placeholder.Text}': metadata key '{placeholder.Name}' isn't in " +
+                                 "the webhook's message.metadata");
+        }
     }
 
     private HashSet<string> CheckRoute(
@@ -721,7 +832,8 @@ internal sealed partial class HookpipeConfigurationBinder(ConfigurationErrors er
                     errors.Add(path, $"target '{target}': '{type.Name}' brokers take no topic; write just '{target.Broker}'");
             }
 
-            if (target.Topic is not null && brokers[brokerId].Settings is IKnownTopics known && !known.HasTopic(target.Topic))
+            if (target is { Topic: not null, TopicTemplate: null } && brokers[brokerId].Settings is IKnownTopics known &&
+                !known.HasTopic(target.Topic))
                 errors.Add(path, $"target '{target}': topic '{target.Topic}' isn't in brokers.{brokerId}.settings.{known.TopicsKey}");
 
             resolved.Add(target with { Broker = brokerId });

@@ -1,4 +1,3 @@
-using System.Text.Json.Nodes;
 using FluentAssertions;
 using Runax.Hookpipe.Conditions;
 
@@ -156,7 +155,7 @@ public sealed class CompareConditionTests
     [Fact]
     public void JsonPath_BodyNotJson_SelectsNothing()
     {
-        var context = new ConditionContext(_ => null, new Dictionary<string, string>(), body: null, bodyIsJson: false);
+        var context = new EvaluationContext("test", _ => null, new Dictionary<string, string>(), rawBody: "not json");
 
         JsonPath("$.id", ConditionOperator.Eq, ConditionValue.Of("a")).Evaluate(context).Should().BeFalse();
         JsonPath("$.id", ConditionOperator.Exists, ConditionValue.Of(false)).Evaluate(context).Should().BeTrue();
@@ -175,7 +174,7 @@ public sealed class CompareConditionTests
     public void Path_ReadsThePathParameter()
     {
         var condition = new CompareCondition(ConditionSource.Path, "source", ConditionOperator.Ne, [ConditionValue.Of("test")]);
-        var context = new ConditionContext(_ => null, new Dictionary<string, string> { ["source"] = "github" }, null, false);
+        var context = PathParameters(("source", "github"));
 
         condition.Evaluate(context).Should().BeTrue();
     }
@@ -219,15 +218,71 @@ public sealed class CompareConditionTests
         act.Should().Throw<ArgumentException>().WithMessage("*'in' needs a list of values*");
     }
 
+    [Fact]
+    public void Operand_PathParameterPlaceholder_IsFilledInPerRequest()
+    {
+        var condition = new CompareCondition(ConditionSource.Header, "X-Tenant", ConditionOperator.Eq,
+            [ConditionValue.Of("{tenant}")]);
+        var context = new EvaluationContext("test", name => name == "X-Tenant" ? "acme" : null,
+            new Dictionary<string, string> { ["tenant"] = "acme" }, null);
+
+        condition.Evaluate(context).Should().BeTrue();
+        condition.PathParameters.Should().Equal("tenant");
+    }
+
+    [Fact]
+    public void Operand_PlaceholderInList_IsFilledIn()
+    {
+        var condition = new CompareCondition(ConditionSource.Path, "source", ConditionOperator.In,
+            [ConditionValue.Of("internal"), ConditionValue.Of("{tenant}-app")]);
+
+        condition.Evaluate(PathParameters(("source", "acme-app"), ("tenant", "acme"))).Should().BeTrue();
+        condition.Evaluate(PathParameters(("source", "other-app"), ("tenant", "acme"))).Should().BeFalse();
+    }
+
+    [Fact]
+    public void Operand_BracesWithoutPlaceholder_StayLiteral()
+    {
+        var condition = JsonPath("$.text", ConditionOperator.Eq, ConditionValue.Of("{}"));
+
+        condition.Evaluate(Body("""{"text":"{}"}""")).Should().BeTrue();
+    }
+
+    [Fact]
+    public void Operand_RegexQuantifier_IsNotAPlaceholder()
+    {
+        var condition = JsonPath("$.code", ConditionOperator.Regex, ConditionValue.Of("^a{2}$"));
+
+        condition.Evaluate(Body("""{"code":"aa"}""")).Should().BeTrue();
+        condition.PathParameters.Should().BeEmpty();
+    }
+
+    [Theory]
+    [InlineData("{header.X-Tenant}", "condition values can only use path parameters")]
+    [InlineData("{$.tenant}", "condition values can only use path parameters")]
+    [InlineData("{tenant:-acme}", "take no default")]
+    public void Operand_UnsupportedPlaceholder_Throws(string value, string message)
+    {
+        var act = () => new CompareCondition(ConditionSource.Header, "X-Tenant", ConditionOperator.Eq,
+            [ConditionValue.Of(value)]);
+
+        act.Should().Throw<ArgumentException>().WithMessage($"*{message}*");
+    }
+
     private static CompareCondition JsonPath(string path, ConditionOperator @operator, params ConditionValue[] operands) =>
         new(ConditionSource.JsonPath, path, @operator, operands);
 
-    private static ConditionContext Body(string json) =>
-        new(_ => null, new Dictionary<string, string>(), JsonNode.Parse(json), bodyIsJson: true);
+    private static EvaluationContext Body(string json) =>
+        new("test", _ => null, new Dictionary<string, string>(), json);
 
-    private static ConditionContext Headers(params (string Name, string Value)[] headers)
+    private static EvaluationContext Headers(params (string Name, string Value)[] headers)
     {
         var values = headers.ToDictionary(header => header.Name, header => header.Value, StringComparer.OrdinalIgnoreCase);
-        return new ConditionContext(name => values.GetValueOrDefault(name), new Dictionary<string, string>(), null, false);
+        return new EvaluationContext("test", name => values.GetValueOrDefault(name), new Dictionary<string, string>(), null);
     }
+
+    private static EvaluationContext PathParameters(params (string Name, string Value)[] parameters) =>
+        new("test", _ => null,
+            parameters.ToDictionary(parameter => parameter.Name, parameter => parameter.Value, StringComparer.OrdinalIgnoreCase),
+            null);
 }

@@ -34,5 +34,5 @@ public abstract class Condition
     /// <summary>
     /// Evaluates the condition against one request.
     /// </summary>
-    internal abstract bool Evaluate(ConditionContext context);
+    internal abstract bool Evaluate(EvaluationContext context);
 }
