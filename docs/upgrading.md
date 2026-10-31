@@ -145,6 +145,7 @@ webhooks:
 
 | v1 | v2 |
 | --- | --- |
+| `HOOKPIPE_MAX_BODY_SIZE_MB=25` | `server.max_body_size: 25MB` in the config, or `max_body_size` on a single webhook. The env var is gone. |
 | 202 body `{"status":"accepted","endpoint_id":…}` | `{"status":"accepted","webhook_id":…,"message_id":…}` |
 | 500 body `all_sinks_failed` | `publish_failed` |
 | `/health/sinks` | `/health/brokers`, keyed by broker ID |

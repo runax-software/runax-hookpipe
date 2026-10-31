@@ -6,9 +6,6 @@ using Serilog.Sinks.Grafana.Loki;
 
 var builder = WebApplication.CreateBuilder(args);
 
-if (int.TryParse(Environment.GetEnvironmentVariable("HOOKPIPE_MAX_BODY_SIZE_MB"), out var maxBodyMb))
-    builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = maxBodyMb * 1024 * 1024);
-
 builder.Host.UseSerilog((context, configuration) =>
 {
     configuration.ReadFrom.Configuration(context.Configuration).WriteTo.Console();
@@ -25,7 +22,19 @@ builder.Host.UseSerilog((context, configuration) =>
 });
 
 var configurationPath = Environment.GetEnvironmentVariable("HOOKPIPE_CONFIG_PATH") ?? "config/hookpipe.yaml";
-builder.Services.AddRunaxHookpipe(hookpipe => hookpipe.LoadYaml(configurationPath));
+
+// The service owns the process, so it applies server.max_body_size to Kestrel. Taking it loads the
+// config here, and Hookpipe then runs on that same result instead of reading the file again.
+long? maxBodySize = null;
+builder.Services.AddRunaxHookpipe(hookpipe =>
+{
+    hookpipe.LoadYaml(configurationPath);
+    maxBodySize = hookpipe.TakeServerMaxBodySize();
+});
+
+if (maxBodySize is { } limit)
+    builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = limit);
+
 builder.Services.AddHostedService<HookpipeMetricsExporter>();
 
 var app = builder.Build();

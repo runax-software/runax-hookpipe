@@ -90,6 +90,39 @@ internal sealed partial class ScalarReader(ConfigurationErrors errors)
         };
     }
 
+    /// <summary>
+    /// Reads a byte size written <c>512B</c>, <c>64KB</c>, <c>25MB</c>, or <c>1GB</c>. Units are
+    /// powers of 1024 and are matched ignoring case.
+    /// </summary>
+    public long? ByteSize(ConfigurationNode node)
+    {
+        if (node is not ConfigurationScalar { Value: not null } scalar)
+            return Fail<long>(node, "expected a size such as 512B, 64KB, 25MB, or 1GB");
+
+        var match = ByteSizePattern().Match(scalar.Value.Trim());
+        if (!match.Success)
+            return Fail<long>(node, $"expected a size such as 512B, 64KB, 25MB, or 1GB, got {scalar.Describe()}");
+
+        var amount = double.Parse(match.Groups["amount"].Value, CultureInfo.InvariantCulture);
+        var unit = match.Groups["unit"].Value.ToUpperInvariant() switch
+        {
+            "B" => 1L,
+            "KB" => 1024L,
+            "MB" => 1024L * 1024,
+            _ => 1024L * 1024 * 1024,
+        };
+
+        // long.MaxValue rounds up to 2^63 once widened to double, so comparing against it lets 2^63
+        // itself through, and the cast below then clamps it to long.MaxValue instead of reporting it.
+        // 2^63 is exact as a double, so reject from there up.
+        const double tooLarge = 9223372036854775808.0;
+
+        var bytes = amount * unit;
+        if (bytes >= tooLarge) return Fail<long>(node, "is larger than Hookpipe can represent");
+
+        return bytes >= 1 ? (long)bytes : Fail<long>(node, "must be at least 1 byte");
+    }
+
     public TEnum? Enum<TEnum>(ConfigurationNode node) where TEnum : struct, Enum
     {
         var names = string.Join(", ", System.Enum.GetNames<TEnum>().Select(name => name.ToLowerInvariant()));
@@ -154,4 +187,7 @@ internal sealed partial class ScalarReader(ConfigurationErrors errors)
 
     [GeneratedRegex(@"^(?<amount>\d+(\.\d+)?)(?<unit>ms|s|m|h)$")]
     private static partial Regex DurationPattern();
+
+    [GeneratedRegex(@"^(?<amount>\d+(\.\d+)?)(?<unit>B|KB|MB|GB)$", RegexOptions.IgnoreCase)]
+    private static partial Regex ByteSizePattern();
 }

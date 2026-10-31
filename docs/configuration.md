@@ -20,6 +20,7 @@ A webhook names where it publishes inline, as a **target** such as `rabbit:githu
 version: 2
 
 server:
+  max_body_size: 25MB                   # service only: Kestrel's limit for the whole process
   paths:
     webhooks: /webhooks                 # the default; every webhook is served under it
 
@@ -109,6 +110,10 @@ each message.
 | Key | Description | Default |
 | --- | --- | --- |
 | `paths.webhooks` | The prefix every webhook is served under. Use `/` to serve webhooks at the root, for example to keep URLs from v1. | `/webhooks` |
+| `max_body_size` | The request body limit for the whole process, such as `25MB`. Service only: it sets Kestrel's limit. In library mode the limit belongs to the host's server, so it's ignored with a warning — use a webhook's `max_body_size` instead. | Kestrel's default (~28.6 MB) |
+
+Sizes are written as a number and a unit: `B`, `KB`, `MB`, or `GB`, in powers of 1024, such as
+`512B`, `64KB`, `25MB`, or `1GB`. The unit is required and matched ignoring case.
 
 ## `brokers`
 
@@ -155,6 +160,7 @@ nothing". `none` can't be a broker ID.
 | `methods` | Allowed HTTP methods. Other methods get 405. | `[POST]` |
 | `validate` | Validators that must all pass, in order. See [validators.md](validators.md). | none |
 | `rate_limit` | `requests` per `window` (fixed window). Over the limit gets 429. | none |
+| `max_body_size` | The request body limit for this webhook, such as `10MB` ([sizes](#server)). A larger request gets 413. It's applied per request, so it works in library mode too, and it can raise or lower the host's own limit. | The host's limit |
 | `message.body` | Include the request body | `true` |
 | `message.headers` | `true` for every header, `false` for none, or a list of names | `false` |
 | `message.metadata` | Values added to the envelope. Values are [templates](#templates), such as `"{source}"` or `"{header.X-Tenant:-none}"`. | none |
@@ -172,6 +178,7 @@ Routes must be unique, and none may shadow the service's own `/health`, `/health
 | 401 | A validator failed | `{"error":"unauthorized"}` |
 | 404 | The webhook was removed by a reload | — |
 | 405 | The method isn't in `methods` | — |
+| 413 | The body is over `max_body_size` | `{"error":"payload_too_large","webhook_id":…}` |
 | 429 | Over `rate_limit` | `{"error":"rate_limit_exceeded","webhook_id":…}` |
 | 500 | Every target failed, or a metadata template didn't resolve | `{"error":"publish_failed","webhook_id":…}` |
 
@@ -287,7 +294,6 @@ route:
 | Variable | Description | Default |
 | --- | --- | --- |
 | `HOOKPIPE_CONFIG_PATH` | Path to the YAML config file | `config/hookpipe.yaml` |
-| `HOOKPIPE_MAX_BODY_SIZE_MB` | Max request body size in MB (service only); larger requests get 413 | Kestrel's default (~28.6 MB) |
 | `Logging__LogLevel__Default` | Default log level | `Information` |
 | `Logging__LogLevel__Runax` | Hookpipe log level (`Runax.*` categories) | `Information` |
 | `Logging__LogLevel__Microsoft.AspNetCore` | ASP.NET log level | `Warning` |
@@ -303,7 +309,7 @@ Hookpipe watches the config file and reloads it 500 ms after the last change.
 
 | Change | Takes effect |
 | --- | --- |
-| A webhook's `methods`, `validate`, `message`, `to`, `route` | On the next request |
+| A webhook's `methods`, `validate`, `message`, `to`, `route`, `max_body_size` | On the next request |
 | A broker's `publish.retry` | On the next publish |
 | Adding or removing webhooks or brokers; changing a `path`, `server.paths`, a broker's `type` or `settings`, or a `rate_limit` | After a restart. The reload is applied, and the log lists what needs a restart, such as `brokers.audit (added)`. |
 

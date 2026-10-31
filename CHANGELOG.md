@@ -13,6 +13,7 @@ v2 is a breaking release with no compatibility mode. See [docs/upgrading.md](doc
   - `*_env` keys are replaced by `${VAR}`, `${VAR:-default}`, and `${file:…}` interpolation. A missing variable fails startup.
   - Durations are written `2s`, `1m`; `backoff_multiplier` becomes `factor` and is now applied.
   - Unknown keys fail the load, with the config path of every problem.
+- The `HOOKPIPE_MAX_BODY_SIZE_MB` environment variable is replaced by `server.max_body_size`, written as a size such as `25MB`.
 - Broker types renamed: `redis-stream` → `redis`, `servicebus` → `azure-servicebus`, `eventhub` → `azure-eventhubs`.
 - `/health/sinks` → `/health/brokers`.
 - 202 body is `{"status":"accepted","webhook_id":…,"message_id":…}`; 500 body error is `publish_failed`.
@@ -23,6 +24,8 @@ v2 is a breaking release with no compatibility mode. See [docs/upgrading.md](doc
 - Routing on the JSON body with RFC 9535 JSONPath, plus header and path-parameter conditions; operators `eq`, `ne`, `in`, `not_in`, `gt`, `gte`, `lt`, `lte`, `contains`, `starts_with`, `ends_with`, `regex`, `exists`, combined with `all`, `any`, and `not`.
 - Templates in target topics and `message.metadata` values: path parameters, `{webhook_id}`, `{metadata.key}`, `{header.Name}`, and `{$.json.path}` with `:-` defaults. Topics render per target; an unresolved or invalid one skips only that target and is counted in `hookpipe_template_failures_total`.
 - Path-parameter placeholders in condition values, such as `{ header: X-Tenant, eq: "{tenant}" }`.
+- `server.max_body_size` (`25MB`, `64KB`, `512B`, `1GB`) sets the service's Kestrel body limit for the whole process; library mode ignores it with a warning, because the limit belongs to the host's server.
+- `webhooks.<id>.max_body_size` limits one webhook's body and answers 413 above it. It's applied per request, so it works in library mode too and changes live on reload.
 - Retry `backoff` (`constant`, `linear`, `exponential`), `max_delay`, and `jitter`.
 - Reloads that need a restart are logged; a reload whose targets use a broker that isn't running is rejected.
 

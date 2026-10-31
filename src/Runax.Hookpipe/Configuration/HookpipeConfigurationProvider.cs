@@ -26,10 +26,25 @@ public sealed class HookpipeConfigurationProvider
     /// <exception cref="FileNotFoundException">The file doesn't exist.</exception>
     /// <exception cref="HookpipeConfigurationException">The file isn't a valid v2 configuration.</exception>
     public HookpipeConfigurationProvider(string configurationPath, ILogger<HookpipeConfigurationProvider> logger)
+        : this(configurationPath, ConfigurationLoader.Load(configurationPath), logger)
+    {
+    }
+
+    /// <summary>
+    /// Takes over a configuration the host has already loaded from <paramref name="configurationPath"/>,
+    /// so the file isn't read twice. Reloads read the file again, as usual.
+    /// </summary>
+    /// <param name="configurationPath">Path to the YAML configuration file.</param>
+    /// <param name="configuration">The configuration already loaded from that file.</param>
+    /// <param name="logger">Logger for reloads.</param>
+    public HookpipeConfigurationProvider(
+        string configurationPath,
+        HookpipeConfiguration configuration,
+        ILogger<HookpipeConfigurationProvider> logger)
     {
         _configurationPath = configurationPath;
         _logger = logger;
-        _running = _configuration = ConfigurationLoader.Load(configurationPath);
+        _running = _configuration = configuration;
     }
 
     /// <summary>

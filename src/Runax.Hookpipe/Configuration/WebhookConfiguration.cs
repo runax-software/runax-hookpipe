@@ -29,6 +29,12 @@ public sealed class WebhookConfiguration
     public RateLimitConfiguration? RateLimit { get; init; }
 
     /// <summary>
+    /// The request body limit for this webhook, in bytes, or null to keep the host's limit. A larger
+    /// request gets 413. It's applied per request, so it works in library mode too.
+    /// </summary>
+    public long? MaxBodySize { get; init; }
+
+    /// <summary>
     /// What the published message carries.
     /// </summary>
     public MessageConfiguration Message { get; init; } = new();

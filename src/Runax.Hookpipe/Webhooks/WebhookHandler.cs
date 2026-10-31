@@ -4,6 +4,7 @@ using Runax.Hookpipe.Diagnostics;
 using Runax.Hookpipe.Hosting;
 using Runax.Hookpipe.Models;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Extensions.Logging;
 
 namespace Runax.Hookpipe.Webhooks;
@@ -27,6 +28,7 @@ internal sealed class WebhookHandler(string webhookId, ILogger logger, HookpipeR
         if (webhook is null) return;
 
         if (!CheckMethod(context, webhook)) return;
+        if (!await ApplyBodySizeLimitAsync(context, webhook)) return;
         if (!await CheckRateLimit(context)) return;
         if (!await ValidateRequest(context, webhook)) return;
 
@@ -64,6 +66,11 @@ internal sealed class WebhookHandler(string webhookId, ILogger logger, HookpipeR
                 await RespondPublishFailedAsync(context);
             }
         }
+        catch (BadHttpRequestException ex) when (ex.StatusCode == StatusCodes.Status413PayloadTooLarge)
+        {
+            // The server enforced the limit while the body was being read, so its length wasn't known up front.
+            await RespondTooLargeAsync(context, webhook.MaxBodySize);
+        }
         catch (Exception ex)
         {
             logger.LogError(ex, "[Hookpipe.Webhook:{WebhookId}] Failed to process request", webhookId);
@@ -71,6 +78,36 @@ internal sealed class WebhookHandler(string webhookId, ILogger logger, HookpipeR
             context.Response.StatusCode = StatusCodes.Status500InternalServerError;
             await context.Response.WriteAsJsonAsync(new { error = "internal_error", webhook_id = webhookId });
         }
+    }
+
+    /// <summary>
+    /// Applies the webhook's <c>max_body_size</c> to this request, read from the live configuration so
+    /// a reload changes it. Returns false, after answering 413, when the request declares a larger
+    /// body. The limit is set before anything reads the body, because
+    /// <see cref="IHttpMaxRequestBodySizeFeature.MaxRequestBodySize"/> can't be changed after that.
+    /// </summary>
+    private async Task<bool> ApplyBodySizeLimitAsync(HttpContext context, WebhookConfiguration webhook)
+    {
+        if (webhook.MaxBodySize is not { } limit) return true;
+
+        // The feature is missing on servers that don't support a per-request limit, such as TestServer,
+        // and read-only once the body has been read. Either way, Content-Length still answers 413.
+        if (context.Features.Get<IHttpMaxRequestBodySizeFeature>() is { IsReadOnly: false } feature)
+            feature.MaxRequestBodySize = limit;
+
+        if (context.Request.ContentLength is not { } length || length <= limit) return true;
+
+        await RespondTooLargeAsync(context, limit);
+        return false;
+    }
+
+    private async Task RespondTooLargeAsync(HttpContext context, long? limit)
+    {
+        logger.LogDebug("[Hookpipe.Webhook:{WebhookId}] Body over max_body_size ({Limit} bytes), returning 413",
+            webhookId, limit);
+        HookpipeMetrics.RecordRequest(webhookId, context.Request.Method, "413");
+        context.Response.StatusCode = StatusCodes.Status413PayloadTooLarge;
+        await context.Response.WriteAsJsonAsync(new { error = "payload_too_large", webhook_id = webhookId });
     }
 
     private async Task RespondPublishFailedAsync(HttpContext context)
