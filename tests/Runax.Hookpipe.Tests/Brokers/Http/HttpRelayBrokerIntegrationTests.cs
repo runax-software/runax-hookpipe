@@ -1,5 +1,4 @@
 using System.Text.Json;
-using FluentAssertions;
 using Runax.Hookpipe.Models;
 using Runax.Hookpipe.Brokers.Http;
 using Microsoft.AspNetCore.Builder;
@@ -7,6 +6,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
+using Shouldly;
 
 namespace Runax.Hookpipe.Tests.Brokers.Http;
 
@@ -24,13 +24,13 @@ public sealed class HttpRelayBrokerIntegrationTests
 
         var act = () => broker.PublishAsync(null, MakeEnvelope("http-test", new { test = "http-relay" }));
 
-        await act.Should().NotThrowAsync();
-        server.LastRequest.Should().NotBeNull();
-        server.LastRequest!.Method.Should().Be("POST");
-        server.LastRequest.Path.Should().Be("/hooks");
+        await Should.NotThrowAsync(act);
+        server.LastRequest.ShouldNotBeNull();
+        server.LastRequest!.Method.ShouldBe("POST");
+        server.LastRequest.Path.ShouldBe("/hooks");
 
         var deserialized = JsonSerializer.Deserialize<JsonElement>(server.LastRequest.Body);
-        deserialized.GetProperty("webhookId").GetString().Should().Be("http-test");
+        deserialized.GetProperty("webhookId").GetString().ShouldBe("http-test");
     }
 
     [Fact]
@@ -41,11 +41,11 @@ public sealed class HttpRelayBrokerIntegrationTests
 
         await broker.PublishAsync("orders", MakeEnvelope("http-topic-test"));
 
-        server.LastRequest.Should().NotBeNull();
-        server.LastRequest!.Path.Should().Be("/hooks/orders");
-        server.LastRequest.Query.Should().Be("?token=abc");
+        server.LastRequest.ShouldNotBeNull();
+        server.LastRequest!.Path.ShouldBe("/hooks/orders");
+        server.LastRequest.Query.ShouldBe("?token=abc");
         JsonSerializer.Deserialize<JsonElement>(server.LastRequest.Body)
-            .GetProperty("webhookId").GetString().Should().Be("http-topic-test");
+            .GetProperty("webhookId").GetString().ShouldBe("http-topic-test");
     }
 
     [Fact]
@@ -56,7 +56,7 @@ public sealed class HttpRelayBrokerIntegrationTests
 
         var act = () => broker.PublishAsync(null, MakeEnvelope("http-test"));
 
-        await act.Should().ThrowAsync<HttpRequestException>();
+        await Should.ThrowAsync<HttpRequestException>(act);
     }
 
     [Fact]
@@ -67,8 +67,8 @@ public sealed class HttpRelayBrokerIntegrationTests
 
         await broker.PublishAsync(null, MakeEnvelope("content-type-test"));
 
-        server.LastRequest.Should().NotBeNull();
-        server.LastRequest!.ContentType.Should().StartWith("application/json");
+        server.LastRequest.ShouldNotBeNull();
+        server.LastRequest!.ContentType.ShouldStartWith("application/json");
     }
 
     private static HttpRelayBroker CreateBroker(string url) => HttpRelayBroker.Create(

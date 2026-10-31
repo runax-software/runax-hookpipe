@@ -1,10 +1,10 @@
 using System.Text.Json;
-using FluentAssertions;
 using Google.Api.Gax;
 using Google.Cloud.PubSub.V1;
 using Runax.Hookpipe.Models;
 using Runax.Hookpipe.Brokers.Google.PubSub;
 using Microsoft.Extensions.Logging;
+using Shouldly;
 
 namespace Runax.Hookpipe.Tests.Brokers.Google.PubSub;
 
@@ -95,11 +95,11 @@ public sealed class GooglePubSubBrokerIntegrationTests : IAsyncLifetime
         while (received is null && !cts.Token.IsCancellationRequested)
             await Task.Delay(100, cts.Token);
 
-        received.Should().NotBeNull();
+        received.ShouldNotBeNull();
         var json = received!.Data.ToStringUtf8();
         var deserialized = JsonSerializer.Deserialize<JsonElement>(json);
-        deserialized.GetProperty("webhookId").GetString().Should().Be("pubsub-integration-test");
-        deserialized.GetProperty("method").GetString().Should().Be("POST");
+        deserialized.GetProperty("webhookId").GetString().ShouldBe("pubsub-integration-test");
+        deserialized.GetProperty("method").GetString().ShouldBe("POST");
     }
 
     [Fact]
@@ -130,8 +130,8 @@ public sealed class GooglePubSubBrokerIntegrationTests : IAsyncLifetime
         while (received is null && !cts.Token.IsCancellationRequested)
             await Task.Delay(100, cts.Token);
 
-        received.Should().NotBeNull();
-        received!.Attributes["hookpipe.message.id"].Should().Be(messageId);
-        received.Attributes["hookpipe.webhook.id"].Should().Be("attr-test");
+        received.ShouldNotBeNull();
+        received!.Attributes["hookpipe.message.id"].ShouldBe(messageId);
+        received.Attributes["hookpipe.webhook.id"].ShouldBe("attr-test");
     }
 }

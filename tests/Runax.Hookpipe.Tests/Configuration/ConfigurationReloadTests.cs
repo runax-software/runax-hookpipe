@@ -1,6 +1,6 @@
-using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Runax.Hookpipe.Configuration;
+using Shouldly;
 
 namespace Runax.Hookpipe.Tests.Configuration;
 
@@ -28,8 +28,8 @@ public sealed class ConfigurationReloadTests : IDisposable
     {
         var check = Compare(Running.Replace("to: console", "to: rabbit:github.events"));
 
-        check.RestartRequired.Should().BeEmpty();
-        check.Rejections.Should().BeEmpty();
+        check.RestartRequired.ShouldBeEmpty();
+        check.Rejections.ShouldBeEmpty();
     }
 
     [Fact]
@@ -57,14 +57,17 @@ public sealed class ConfigurationReloadTests : IDisposable
                 to: console
             """);
 
-        check.RestartRequired.Should().BeEquivalentTo(
-            "server.paths.webhooks (changed)",
-            "brokers.audit (added)",
-            "brokers.rabbit.settings (changed)",
-            "webhooks.stripe (added)",
-            "webhooks.github.path (changed)",
-            "webhooks.github.rate_limit (changed)");
-        check.Rejections.Should().BeEmpty();
+        check.RestartRequired.ShouldBe(
+            [
+                "server.paths.webhooks (changed)",
+                "brokers.audit (added)",
+                "brokers.rabbit.settings (changed)",
+                "webhooks.stripe (added)",
+                "webhooks.github.path (changed)",
+                "webhooks.github.rate_limit (changed)",
+            ],
+            ignoreOrder: true);
+        check.Rejections.ShouldBeEmpty();
     }
 
     [Fact]
@@ -87,8 +90,7 @@ public sealed class ConfigurationReloadTests : IDisposable
                 to: audit
             """);
 
-        check.Rejections.Should().ContainSingle()
-            .Which.Should().Contain("target 'audit' uses broker 'audit', which isn't running");
+        check.Rejections.ShouldHaveSingleItem().ShouldContain("target 'audit' uses broker 'audit', which isn't running");
     }
 
     [Fact]
@@ -109,8 +111,8 @@ public sealed class ConfigurationReloadTests : IDisposable
                 to: console:events
             """);
 
-        provider.Reload().Should().BeFalse();
-        provider.Current.Brokers["console"].Type.Should().Be("stdout");
+        provider.Reload().ShouldBeFalse();
+        provider.Current.Brokers["console"].Type.ShouldBe("stdout");
     }
 
     [Fact]
@@ -121,8 +123,8 @@ public sealed class ConfigurationReloadTests : IDisposable
 
         File.WriteAllText(_configurationPath, "version: 2\nwebhooks:\n  github:\n    to: missing\n");
 
-        provider.Reload().Should().BeFalse();
-        provider.Current.Webhooks["github"].To.Should().Equal(new Target("console", null));
+        provider.Reload().ShouldBeFalse();
+        provider.Current.Webhooks["github"].To.ShouldBe([new Target("console", null)]);
     }
 
     [Fact]
@@ -133,8 +135,8 @@ public sealed class ConfigurationReloadTests : IDisposable
 
         File.WriteAllText(_configurationPath, Running.Replace("to: console", "to: rabbit:github.events"));
 
-        provider.Reload().Should().BeTrue();
-        provider.Current.Webhooks["github"].To.Should().Equal(new Target("rabbit", "github.events"));
+        provider.Reload().ShouldBeTrue();
+        provider.Current.Webhooks["github"].To.ShouldBe([new Target("rabbit", "github.events")]);
     }
 
     /// <inheritdoc />

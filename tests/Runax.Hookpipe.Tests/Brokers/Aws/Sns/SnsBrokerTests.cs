@@ -1,8 +1,8 @@
-using FluentAssertions;
 using Runax.Hookpipe.Models;
 using Runax.Hookpipe.Brokers.Aws.Sns;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
+using Shouldly;
 
 namespace Runax.Hookpipe.Tests.Brokers.Aws.Sns;
 
@@ -26,7 +26,7 @@ public sealed class SnsBrokerTests
     {
         using var broker = CreateBroker();
 
-        broker.Type.Should().Be("sns");
+        broker.Type.ShouldBe("sns");
     }
 
     [Theory]
@@ -38,7 +38,8 @@ public sealed class SnsBrokerTests
 
         var act = () => broker.PublishAsync(topic, MakeEnvelope());
 
-        await act.Should().ThrowAsync<ArgumentException>().WithMessage("*needs a topic*");
+        var exception = await Should.ThrowAsync<ArgumentException>(act);
+        exception.Message.ShouldContain("needs a topic");
     }
 
     [Fact]
@@ -48,7 +49,8 @@ public sealed class SnsBrokerTests
 
         var act = () => broker.PublishAsync("invoices", MakeEnvelope());
 
-        await act.Should().ThrowAsync<ArgumentException>().WithMessage("*no topic ARN for topic 'invoices'*");
+        var exception = await Should.ThrowAsync<ArgumentException>(act);
+        exception.Message.ShouldContain("no topic ARN for topic 'invoices'");
     }
 
     private static MessageEnvelope MakeEnvelope() => new()

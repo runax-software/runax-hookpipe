@@ -1,9 +1,9 @@
-using FluentAssertions;
 using Runax.Hookpipe.Models;
 using Runax.Hookpipe.Brokers.Health;
 using Runax.Hookpipe.Brokers.Google.PubSub;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
+using Shouldly;
 
 namespace Runax.Hookpipe.Tests.Brokers.Google.PubSub;
 
@@ -19,7 +19,7 @@ public sealed class GooglePubSubBrokerTests
     {
         await using var broker = CreateBroker();
 
-        broker.Type.Should().Be("google-pubsub");
+        broker.Type.ShouldBe("google-pubsub");
     }
 
     [Theory]
@@ -40,7 +40,8 @@ public sealed class GooglePubSubBrokerTests
 
         var act = () => broker.PublishAsync(topic, envelope);
 
-        await act.Should().ThrowAsync<ArgumentException>().WithMessage("*needs a topic*");
+        var exception = await Should.ThrowAsync<ArgumentException>(act);
+        exception.Message.ShouldContain("needs a topic");
     }
 
     [Fact]
@@ -50,7 +51,7 @@ public sealed class GooglePubSubBrokerTests
 
         var act = async () => await broker.DisposeAsync();
 
-        await act.Should().NotThrowAsync();
+        await Should.NotThrowAsync(act);
     }
 
     [Fact]
@@ -60,6 +61,6 @@ public sealed class GooglePubSubBrokerTests
 
         var health = await broker.CheckHealthAsync();
 
-        health.Should().Be(new BrokerHealth(BrokerHealthStatus.Unknown, "no topic to probe"));
+        health.ShouldBe(new BrokerHealth(BrokerHealthStatus.Unknown, "no topic to probe"));
     }
 }

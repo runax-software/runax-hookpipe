@@ -1,7 +1,7 @@
-using FluentAssertions;
 using Runax.Hookpipe.Brokers.Http;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
+using Shouldly;
 
 namespace Runax.Hookpipe.Tests.Brokers.Http;
 
@@ -15,7 +15,7 @@ public sealed class HttpRelayBrokerTests
             new HttpBrokerSettings { Url = "http://localhost:9999" },
             Substitute.For<ILogger<HttpRelayBroker>>());
 
-        broker.Type.Should().Be("http");
+        broker.Type.ShouldBe("http");
     }
 
     [Fact]
@@ -26,7 +26,7 @@ public sealed class HttpRelayBrokerTests
             new HttpBrokerSettings { Url = "http://localhost:9999", Timeout = TimeSpan.FromSeconds(5) },
             Substitute.For<ILogger<HttpRelayBroker>>());
 
-        act.Should().NotThrow().Which.Dispose();
+        Should.NotThrow(act).Dispose();
     }
 
     [Theory]
@@ -36,7 +36,7 @@ public sealed class HttpRelayBrokerTests
     {
         var url = HttpRelayBroker.UrlFor("http://relay.local/hooks?token=abc", topic);
 
-        url.Should().Be("http://relay.local/hooks?token=abc");
+        url.ShouldBe("http://relay.local/hooks?token=abc");
     }
 
     [Theory]
@@ -48,7 +48,7 @@ public sealed class HttpRelayBrokerTests
     {
         var url = HttpRelayBroker.UrlFor(baseUrl, "orders");
 
-        url.Should().Be(expected);
+        url.ShouldBe(expected);
     }
 
     [Fact]
@@ -56,7 +56,7 @@ public sealed class HttpRelayBrokerTests
     {
         var url = HttpRelayBroker.UrlFor("http://relay.local/hooks?token=abc&env=dev", "github.push");
 
-        url.Should().Be("http://relay.local/hooks/github.push?token=abc&env=dev");
+        url.ShouldBe("http://relay.local/hooks/github.push?token=abc&env=dev");
     }
 
     [Fact]
@@ -64,6 +64,6 @@ public sealed class HttpRelayBrokerTests
     {
         var url = HttpRelayBroker.UrlFor("http://relay.local/hooks", "a/b");
 
-        url.Should().Be("http://relay.local/hooks/a%2Fb");
+        url.ShouldBe("http://relay.local/hooks/a%2Fb");
     }
 }

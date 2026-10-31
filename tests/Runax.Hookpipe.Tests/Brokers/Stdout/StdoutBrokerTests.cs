@@ -1,9 +1,9 @@
-using FluentAssertions;
 using Runax.Hookpipe.Models;
 using Runax.Hookpipe.Brokers.Health;
 using Runax.Hookpipe.Brokers.Stdout;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
+using Shouldly;
 
 namespace Runax.Hookpipe.Tests.Brokers.Stdout;
 
@@ -16,7 +16,7 @@ public sealed class StdoutBrokerTests
 
         var health = await broker.CheckHealthAsync();
 
-        health.Status.Should().Be(BrokerHealthStatus.Healthy);
+        health.Status.ShouldBe(BrokerHealthStatus.Healthy);
     }
 
     [Fact]
@@ -25,7 +25,7 @@ public sealed class StdoutBrokerTests
         var logger = Substitute.For<ILogger<StdoutBroker>>();
         var broker = new StdoutBroker(logger);
 
-        broker.Type.Should().Be("stdout");
+        broker.Type.ShouldBe("stdout");
     }
 
     [Theory]
@@ -47,7 +47,7 @@ public sealed class StdoutBrokerTests
 
         var act = () => broker.PublishAsync(topic, envelope);
 
-        await act.Should().NotThrowAsync();
+        await Should.NotThrowAsync(act);
     }
 
     [Fact]
@@ -67,6 +67,6 @@ public sealed class StdoutBrokerTests
 
         await broker.PublishAsync(null, envelope);
 
-        logger.ReceivedCalls().Should().NotBeEmpty();
+        logger.ReceivedCalls().ShouldNotBeEmpty();
     }
 }

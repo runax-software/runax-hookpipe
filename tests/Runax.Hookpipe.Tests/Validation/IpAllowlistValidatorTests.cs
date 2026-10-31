@@ -1,10 +1,10 @@
 using System.Net;
-using FluentAssertions;
 using Runax.Hookpipe.Configuration;
 using Runax.Hookpipe.Validation;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
+using Shouldly;
 
 namespace Runax.Hookpipe.Tests.Validation;
 
@@ -32,7 +32,7 @@ public sealed class IpAllowlistValidatorTests
 
         var result = await _validator.ValidateAsync(context, MakeConfiguration("10.0.0.1"));
 
-        result.Should().BeTrue();
+        result.ShouldBeTrue();
     }
 
     [Fact]
@@ -42,7 +42,7 @@ public sealed class IpAllowlistValidatorTests
 
         var result = await _validator.ValidateAsync(context, MakeConfiguration("10.0.0.1"));
 
-        result.Should().BeFalse();
+        result.ShouldBeFalse();
     }
 
     [Fact]
@@ -52,7 +52,7 @@ public sealed class IpAllowlistValidatorTests
 
         var result = await _validator.ValidateAsync(context, MakeConfiguration("192.168.1.0/24"));
 
-        result.Should().BeTrue();
+        result.ShouldBeTrue();
     }
 
     [Fact]
@@ -62,7 +62,7 @@ public sealed class IpAllowlistValidatorTests
 
         var result = await _validator.ValidateAsync(context, MakeConfiguration("192.168.1.0/24"));
 
-        result.Should().BeFalse();
+        result.ShouldBeFalse();
     }
 
     [Fact]
@@ -72,7 +72,7 @@ public sealed class IpAllowlistValidatorTests
 
         var result = await _validator.ValidateAsync(context, MakeConfiguration("10.0.0.1", "192.168.1.0/24"));
 
-        result.Should().BeTrue();
+        result.ShouldBeTrue();
     }
 
     [Fact]
@@ -82,7 +82,7 @@ public sealed class IpAllowlistValidatorTests
 
         var result = await _validator.ValidateAsync(context, MakeConfiguration());
 
-        result.Should().BeFalse();
+        result.ShouldBeFalse();
     }
 
     [Fact]
@@ -92,7 +92,7 @@ public sealed class IpAllowlistValidatorTests
 
         var result = await _validator.ValidateAsync(context, MakeConfiguration("10.0.0.1"));
 
-        result.Should().BeFalse();
+        result.ShouldBeFalse();
     }
 
     [Fact]
@@ -102,7 +102,7 @@ public sealed class IpAllowlistValidatorTests
 
         var result = await _validator.ValidateAsync(context, MakeConfiguration("140.82.0.0/16"));
 
-        result.Should().BeTrue();
+        result.ShouldBeTrue();
     }
 
     [Theory]
@@ -114,6 +114,6 @@ public sealed class IpAllowlistValidatorTests
 
         var result = await _validator.ValidateAsync(context, MakeConfiguration(cidr));
 
-        result.Should().BeFalse();
+        result.ShouldBeFalse();
     }
 }

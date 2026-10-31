@@ -1,8 +1,8 @@
-using FluentAssertions;
 using Runax.Hookpipe.Models;
 using Runax.Hookpipe.Brokers.Stdout;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
+using Shouldly;
 
 namespace Runax.Hookpipe.Tests.Brokers.Stdout;
 
@@ -27,7 +27,7 @@ public sealed class StdoutBrokerIntegrationTests
 
         var act = () => broker.PublishAsync(null, envelope);
 
-        await act.Should().NotThrowAsync();
+        await Should.NotThrowAsync(act);
     }
 
     [Fact]
@@ -48,7 +48,7 @@ public sealed class StdoutBrokerIntegrationTests
 
         var act = () => broker.PublishAsync(null, envelope);
 
-        await act.Should().NotThrowAsync();
+        await Should.NotThrowAsync(act);
     }
 
     [Fact]
@@ -69,6 +69,6 @@ public sealed class StdoutBrokerIntegrationTests
 
         await broker.PublishAsync(null, envelope);
 
-        logger.ReceivedCalls().Should().NotBeEmpty();
+        logger.ReceivedCalls().ShouldNotBeEmpty();
     }
 }

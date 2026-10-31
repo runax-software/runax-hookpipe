@@ -1,9 +1,9 @@
 using System.Text.Json;
 using Confluent.Kafka;
-using FluentAssertions;
 using Runax.Hookpipe.Models;
 using Runax.Hookpipe.Brokers.Kafka;
 using Microsoft.Extensions.Logging;
+using Shouldly;
 
 namespace Runax.Hookpipe.Tests.Brokers.Kafka;
 
@@ -86,11 +86,11 @@ public sealed class KafkaBrokerIntegrationTests : IAsyncLifetime
         consumer.Subscribe(_topic);
 
         var result = ConsumeWithRetry(consumer);
-        result.Should().NotBeNull();
+        result.ShouldNotBeNull();
 
         var deserialized = JsonSerializer.Deserialize<JsonElement>(result!.Message.Value);
-        deserialized.GetProperty("webhookId").GetString().Should().Be("kafka-integration-test");
-        deserialized.GetProperty("method").GetString().Should().Be("POST");
+        deserialized.GetProperty("webhookId").GetString().ShouldBe("kafka-integration-test");
+        deserialized.GetProperty("method").GetString().ShouldBe("POST");
     }
 
     [Fact]
@@ -117,8 +117,8 @@ public sealed class KafkaBrokerIntegrationTests : IAsyncLifetime
         consumer.Subscribe(_topic);
 
         var result = ConsumeWithRetry(consumer);
-        result.Should().NotBeNull();
-        result!.Message.Key.Should().Be("key-test-webhook");
+        result.ShouldNotBeNull();
+        result!.Message.Key.ShouldBe("key-test-webhook");
     }
 
     [Fact]
@@ -146,14 +146,14 @@ public sealed class KafkaBrokerIntegrationTests : IAsyncLifetime
         consumer.Subscribe(_topic);
 
         var result = ConsumeWithRetry(consumer);
-        result.Should().NotBeNull();
+        result.ShouldNotBeNull();
 
         var headers = result!.Message.Headers;
         var msgIdHeader = headers.GetLastBytes("hookpipe.message.id");
         var webhookHeader = headers.GetLastBytes("hookpipe.webhook.id");
 
-        System.Text.Encoding.UTF8.GetString(msgIdHeader).Should().Be(messageId);
-        System.Text.Encoding.UTF8.GetString(webhookHeader).Should().Be("header-test");
+        System.Text.Encoding.UTF8.GetString(msgIdHeader).ShouldBe(messageId);
+        System.Text.Encoding.UTF8.GetString(webhookHeader).ShouldBe("header-test");
     }
 
     [Theory]
@@ -173,6 +173,7 @@ public sealed class KafkaBrokerIntegrationTests : IAsyncLifetime
 
         var act = () => _broker.PublishAsync(topic, envelope);
 
-        await act.Should().ThrowAsync<ArgumentException>().WithMessage("*needs a topic*");
+        var exception = await Should.ThrowAsync<ArgumentException>(act);
+        exception.Message.ShouldContain("needs a topic");
     }
 }

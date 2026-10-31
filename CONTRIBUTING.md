@@ -91,6 +91,7 @@ tests/
 - Use `sealed` on classes that aren't designed for inheritance
 - Add XML docs to all public types and members
 - Keep methods focused and small
+- Write tests with xUnit v3, NSubstitute, and Shouldly
 
 ## Questions?
 

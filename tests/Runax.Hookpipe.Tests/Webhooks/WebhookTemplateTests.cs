@@ -1,6 +1,5 @@
 using System.Net;
 using System.Text;
-using FluentAssertions;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
@@ -8,6 +7,7 @@ using NSubstitute;
 using Runax.Hookpipe.Brokers;
 using Runax.Hookpipe.Hosting;
 using Runax.Hookpipe.Models;
+using Shouldly;
 
 namespace Runax.Hookpipe.Tests.Webhooks;
 
@@ -31,7 +31,7 @@ public sealed class WebhookTemplateTests : IDisposable
 
         var response = await PostAsync(app, "/webhooks/ingest/github", """{"type":"invoice.paid"}""");
 
-        response.StatusCode.Should().Be(HttpStatusCode.Accepted);
+        response.StatusCode.ShouldBe(HttpStatusCode.Accepted);
         await _relay.Received(1).PublishAsync("github.invoice.paid", Arg.Any<MessageEnvelope>(), Arg.Any<CancellationToken>());
     }
 
@@ -45,7 +45,7 @@ public sealed class WebhookTemplateTests : IDisposable
 
         var response = await PostAsync(app, "/webhooks/events", "{}");
 
-        response.StatusCode.Should().Be(HttpStatusCode.Accepted);
+        response.StatusCode.ShouldBe(HttpStatusCode.Accepted);
         await _relay.Received(1).PublishAsync("events.other", Arg.Any<MessageEnvelope>(), Arg.Any<CancellationToken>());
     }
 
@@ -59,7 +59,7 @@ public sealed class WebhookTemplateTests : IDisposable
 
         var response = await PostAsync(app, "/webhooks/events", "{}");
 
-        response.StatusCode.Should().Be(HttpStatusCode.Accepted);
+        response.StatusCode.ShouldBe(HttpStatusCode.Accepted);
         await _relay.DidNotReceiveWithAnyArgs().PublishAsync(default, default!, default);
     }
 
@@ -73,8 +73,8 @@ public sealed class WebhookTemplateTests : IDisposable
 
         var response = await PostAsync(app, "/webhooks/events", "{}");
 
-        response.StatusCode.Should().Be(HttpStatusCode.InternalServerError);
-        (await response.Content.ReadAsStringAsync()).Should().Contain("publish_failed");
+        response.StatusCode.ShouldBe(HttpStatusCode.InternalServerError);
+        (await response.Content.ReadAsStringAsync()).ShouldContain("publish_failed");
         await _relay.DidNotReceiveWithAnyArgs().PublishAsync(default, default!, default);
     }
 
@@ -88,7 +88,7 @@ public sealed class WebhookTemplateTests : IDisposable
 
         var response = await PostAsync(app, "/webhooks/events", """{"type":"a/b"}""");
 
-        response.StatusCode.Should().Be(HttpStatusCode.InternalServerError);
+        response.StatusCode.ShouldBe(HttpStatusCode.InternalServerError);
         await _relay.DidNotReceiveWithAnyArgs().PublishAsync(default, default!, default);
     }
 
@@ -107,7 +107,7 @@ public sealed class WebhookTemplateTests : IDisposable
 
         var response = await PostAsync(app, "/webhooks/ingest/github", "{}", ("X-Tenant", "acme"));
 
-        response.StatusCode.Should().Be(HttpStatusCode.Accepted);
+        response.StatusCode.ShouldBe(HttpStatusCode.Accepted);
         await _relay.Received(1).PublishAsync("acme.events",
             Arg.Is<MessageEnvelope>(envelope =>
                 envelope.Metadata["tenant"] == "acme" && envelope.Metadata["source"] == "github"),
@@ -127,7 +127,7 @@ public sealed class WebhookTemplateTests : IDisposable
 
         var response = await PostAsync(app, "/webhooks/events", "{}");
 
-        response.StatusCode.Should().Be(HttpStatusCode.InternalServerError);
+        response.StatusCode.ShouldBe(HttpStatusCode.InternalServerError);
         await _relay.DidNotReceiveWithAnyArgs().PublishAsync(default, default!, default);
     }
 

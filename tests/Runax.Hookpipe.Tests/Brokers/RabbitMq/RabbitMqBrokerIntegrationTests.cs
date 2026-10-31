@@ -1,10 +1,10 @@
 using System.Text;
 using System.Text.Json;
-using FluentAssertions;
 using Runax.Hookpipe.Models;
 using Runax.Hookpipe.Brokers.RabbitMq;
 using Microsoft.Extensions.Logging;
 using RabbitMQ.Client;
+using Shouldly;
 
 namespace Runax.Hookpipe.Tests.Brokers.RabbitMq;
 
@@ -69,12 +69,12 @@ public sealed class RabbitMqBrokerIntegrationTests : IAsyncLifetime
         await Task.Delay(500);
 
         var result = await _consumerChannel.BasicGetAsync(_queueName, autoAck: true);
-        result.Should().NotBeNull();
+        result.ShouldNotBeNull();
 
         var body = Encoding.UTF8.GetString(result!.Body.ToArray());
         var deserialized = JsonSerializer.Deserialize<JsonElement>(body);
-        deserialized.GetProperty("webhookId").GetString().Should().Be("integration-test");
-        deserialized.GetProperty("method").GetString().Should().Be("POST");
+        deserialized.GetProperty("webhookId").GetString().ShouldBe("integration-test");
+        deserialized.GetProperty("method").GetString().ShouldBe("POST");
     }
 
     [Fact]
@@ -94,10 +94,10 @@ public sealed class RabbitMqBrokerIntegrationTests : IAsyncLifetime
         await Task.Delay(500);
 
         var result = await _consumerChannel.BasicGetAsync(_queueName, autoAck: true);
-        result.Should().NotBeNull();
-        result!.BasicProperties.ContentType.Should().Be("application/json");
-        result.BasicProperties.MessageId.Should().Be("test-msg-123");
-        result.RoutingKey.Should().Be(RoutingKey);
+        result.ShouldNotBeNull();
+        result!.BasicProperties.ContentType.ShouldBe("application/json");
+        result.BasicProperties.MessageId.ShouldBe("test-msg-123");
+        result.RoutingKey.ShouldBe(RoutingKey);
     }
 
     [Fact]
@@ -117,7 +117,7 @@ public sealed class RabbitMqBrokerIntegrationTests : IAsyncLifetime
         await Task.Delay(500);
 
         var result = await _consumerChannel.BasicGetAsync(_queueName, autoAck: true);
-        result.Should().BeNull();
+        result.ShouldBeNull();
     }
 
     [Theory]
@@ -137,6 +137,7 @@ public sealed class RabbitMqBrokerIntegrationTests : IAsyncLifetime
 
         var act = () => _broker.PublishAsync(topic, envelope);
 
-        await act.Should().ThrowAsync<ArgumentException>().WithMessage("*needs a topic*");
+        var exception = await Should.ThrowAsync<ArgumentException>(act);
+        exception.Message.ShouldContain("needs a topic");
     }
 }

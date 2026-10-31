@@ -57,9 +57,6 @@ src/Runax.Hookpipe.Api/
 - The service references the library, the eight `Runax.Messaging.Transports.*` packages,
   `AWSSDK.EventBridge`, prometheus-net, and Serilog.
 - Added for packaging: `Microsoft.CodeAnalysis.PublicApiAnalyzers`.
-- Tests: replace FluentAssertions with Shouldly, which runax-messaging already uses. FluentAssertions
-  8 and later is under Xceed's license, which needs a paid license for commercial use. It's a
-  test-only dependency, so the swap is its own PR, not tied to a phase. Polly stays: it's BSD-3.
 
 **Docs to update:**
 

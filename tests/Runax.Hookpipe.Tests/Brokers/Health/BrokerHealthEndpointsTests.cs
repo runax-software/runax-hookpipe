@@ -1,7 +1,7 @@
-using FluentAssertions;
 using Runax.Hookpipe.Models;
 using Runax.Hookpipe.Brokers;
 using Runax.Hookpipe.Brokers.Health;
+using Shouldly;
 
 namespace Runax.Hookpipe.Tests.Brokers.Health;
 
@@ -16,8 +16,7 @@ public sealed class BrokerHealthEndpointsTests
 
         var results = await BrokerHealthEndpoints.ProbeAllAsync(brokers, ShortTimeout, CancellationToken.None);
 
-        results.Should().ContainSingle()
-            .Which.Health.Status.Should().Be(BrokerHealthStatus.Unknown);
+        results.ShouldHaveSingleItem().Health.Status.ShouldBe(BrokerHealthStatus.Unknown);
     }
 
     [Fact]
@@ -27,7 +26,7 @@ public sealed class BrokerHealthEndpointsTests
 
         var results = await BrokerHealthEndpoints.ProbeAllAsync(brokers, ShortTimeout, CancellationToken.None);
 
-        results.Single().Health.Status.Should().Be(BrokerHealthStatus.Healthy);
+        results.Single().Health.Status.ShouldBe(BrokerHealthStatus.Healthy);
     }
 
     [Fact]
@@ -38,8 +37,8 @@ public sealed class BrokerHealthEndpointsTests
         var results = await BrokerHealthEndpoints.ProbeAllAsync(brokers, ShortTimeout, CancellationToken.None);
 
         var health = results.Single().Health;
-        health.Status.Should().Be(BrokerHealthStatus.Unhealthy);
-        health.Detail.Should().Be("down");
+        health.Status.ShouldBe(BrokerHealthStatus.Unhealthy);
+        health.Detail.ShouldBe("down");
     }
 
     [Fact]
@@ -50,8 +49,8 @@ public sealed class BrokerHealthEndpointsTests
         var results = await BrokerHealthEndpoints.ProbeAllAsync(brokers, ShortTimeout, CancellationToken.None);
 
         var health = results.Single().Health;
-        health.Status.Should().Be(BrokerHealthStatus.Unhealthy);
-        health.Detail.Should().Be("kaboom");
+        health.Status.ShouldBe(BrokerHealthStatus.Unhealthy);
+        health.Detail.ShouldBe("kaboom");
     }
 
     [Fact]
@@ -66,8 +65,8 @@ public sealed class BrokerHealthEndpointsTests
         var results = await BrokerHealthEndpoints.ProbeAllAsync(brokers, ShortTimeout, CancellationToken.None);
 
         var health = results.Single().Health;
-        health.Status.Should().Be(BrokerHealthStatus.Unhealthy);
-        health.Detail.Should().Be("probe timed out");
+        health.Status.ShouldBe(BrokerHealthStatus.Unhealthy);
+        health.Detail.ShouldBe("probe timed out");
     }
 
     [Fact]
@@ -80,7 +79,7 @@ public sealed class BrokerHealthEndpointsTests
 
         var results = await BrokerHealthEndpoints.ProbeAllAsync(brokers, ShortTimeout, CancellationToken.None);
 
-        results.Select(r => r.Id).Should().BeEquivalentTo("a", "b", "c");
+        results.Select(r => r.Id).ShouldBe(["a", "b", "c"], ignoreOrder: true);
     }
 
     [Fact]
@@ -92,7 +91,7 @@ public sealed class BrokerHealthEndpointsTests
             ("b", new BrokerHealth(BrokerHealthStatus.Unknown)),
         };
 
-        BrokerHealthEndpoints.AreAllBrokersReady(results).Should().BeTrue();
+        BrokerHealthEndpoints.AreAllBrokersReady(results).ShouldBeTrue();
     }
 
     [Fact]
@@ -104,7 +103,7 @@ public sealed class BrokerHealthEndpointsTests
             ("b", new BrokerHealth(BrokerHealthStatus.Unhealthy, "down")),
         };
 
-        BrokerHealthEndpoints.AreAllBrokersReady(results).Should().BeFalse();
+        BrokerHealthEndpoints.AreAllBrokersReady(results).ShouldBeFalse();
     }
 
     private static Dictionary<string, IBroker> Brokers(params (string Id, IBroker Broker)[] entries) =>

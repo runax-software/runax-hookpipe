@@ -1,6 +1,6 @@
 using System.Net;
 using System.Text;
-using FluentAssertions;
+using Shouldly;
 
 namespace Runax.Hookpipe.Api.Tests;
 
@@ -28,7 +28,7 @@ public sealed class ApiMetricsTests
             $"/webhooks/{webhookId}",
             new StringContent("""{"hello":"metrics"}""", Encoding.UTF8, "application/json"));
 
-        response.StatusCode.Should().Be(HttpStatusCode.Accepted);
+        response.StatusCode.ShouldBe(HttpStatusCode.Accepted);
         TestApiHost.AssertMetric(await client.GetStringAsync("/metrics"), "hookpipe_messages_published_total", 1,
             ("webhook_id", webhookId), ("broker_id", "console"));
     }
@@ -57,8 +57,8 @@ public sealed class ApiMetricsTests
             $"/webhooks/{webhookId}",
             new StringContent("""{"hello":"metrics"}""", Encoding.UTF8, "application/json"));
 
-        response.StatusCode.Should().Be(HttpStatusCode.InternalServerError);
-        (await response.Content.ReadAsStringAsync()).Should().Contain("publish_failed");
+        response.StatusCode.ShouldBe(HttpStatusCode.InternalServerError);
+        (await response.Content.ReadAsStringAsync()).ShouldContain("publish_failed");
         TestApiHost.AssertMetric(await client.GetStringAsync("/metrics"), "hookpipe_publish_errors_total", 1,
             ("webhook_id", webhookId), ("broker_id", "relay"));
     }
@@ -103,19 +103,19 @@ public sealed class ApiMetricsTests
         var failed = await client.PostAsync($"/webhooks/broken-{suffix}", new StringContent("{}"));
         var unresolved = await client.PostAsync($"/webhooks/templated-{suffix}", new StringContent("{}"));
 
-        unauthorized.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
-        accepted.StatusCode.Should().Be(HttpStatusCode.Accepted);
-        failed.StatusCode.Should().Be(HttpStatusCode.InternalServerError);
-        unresolved.StatusCode.Should().Be(HttpStatusCode.InternalServerError);
+        unauthorized.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
+        accepted.StatusCode.ShouldBe(HttpStatusCode.Accepted);
+        failed.StatusCode.ShouldBe(HttpStatusCode.InternalServerError);
+        unresolved.StatusCode.ShouldBe(HttpStatusCode.InternalServerError);
 
         var metrics = await client.GetStringAsync("/metrics");
-        metrics.Should().Contain("# TYPE hookpipe_requests_total counter");
-        metrics.Should().Contain("# TYPE hookpipe_messages_published_total counter");
-        metrics.Should().Contain("# TYPE hookpipe_publish_errors_total counter");
-        metrics.Should().Contain("# TYPE hookpipe_validation_failures_total counter");
-        metrics.Should().Contain("# TYPE hookpipe_template_failures_total counter");
-        metrics.Should().Contain("# TYPE hookpipe_request_duration_seconds histogram");
-        metrics.Should().NotContain("runax_hookpipe_");
+        metrics.ShouldContain("# TYPE hookpipe_requests_total counter");
+        metrics.ShouldContain("# TYPE hookpipe_messages_published_total counter");
+        metrics.ShouldContain("# TYPE hookpipe_publish_errors_total counter");
+        metrics.ShouldContain("# TYPE hookpipe_validation_failures_total counter");
+        metrics.ShouldContain("# TYPE hookpipe_template_failures_total counter");
+        metrics.ShouldContain("# TYPE hookpipe_request_duration_seconds histogram");
+        metrics.ShouldNotContain("runax_hookpipe_");
         TestApiHost.AssertMetric(metrics, "hookpipe_validation_failures_total", 1,
             ("webhook_id", $"secured-{suffix}"), ("validator_type", "bearer"));
         TestApiHost.AssertMetric(metrics, "hookpipe_requests_total", 1,

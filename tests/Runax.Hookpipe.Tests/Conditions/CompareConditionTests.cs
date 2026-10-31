@@ -1,5 +1,5 @@
-using FluentAssertions;
 using Runax.Hookpipe.Conditions;
+using Shouldly;
 
 namespace Runax.Hookpipe.Tests.Conditions;
 
@@ -14,7 +14,7 @@ public sealed class CompareConditionTests
     {
         var condition = JsonPath("$.amount", ConditionOperator.Eq, new ConditionValue("100", ConditionValueKind.Number));
 
-        condition.Evaluate(Body(body)).Should().Be(expected);
+        condition.Evaluate(Body(body)).ShouldBe(expected);
     }
 
     [Theory]
@@ -25,7 +25,7 @@ public sealed class CompareConditionTests
     {
         var condition = JsonPath("$.code", ConditionOperator.Eq, ConditionValue.Of("100"));
 
-        condition.Evaluate(Body(body)).Should().Be(expected);
+        condition.Evaluate(Body(body)).ShouldBe(expected);
     }
 
     [Theory]
@@ -36,7 +36,7 @@ public sealed class CompareConditionTests
     {
         var condition = JsonPath("$.live", ConditionOperator.Eq, ConditionValue.Of(true));
 
-        condition.Evaluate(Body(body)).Should().Be(expected);
+        condition.Evaluate(Body(body)).ShouldBe(expected);
     }
 
     [Theory]
@@ -48,7 +48,7 @@ public sealed class CompareConditionTests
     {
         var condition = JsonPath("$.value", ConditionOperator.Eq, new ConditionValue("100", ConditionValueKind.Untyped));
 
-        condition.Evaluate(Body(body)).Should().Be(expected);
+        condition.Evaluate(Body(body)).ShouldBe(expected);
     }
 
     [Theory]
@@ -58,7 +58,7 @@ public sealed class CompareConditionTests
     {
         var condition = new CompareCondition(ConditionSource.Header, "X-Event", ConditionOperator.Eq, [ConditionValue.Of("push")]);
 
-        condition.Evaluate(Headers(("x-event", header))).Should().Be(expected);
+        condition.Evaluate(Headers(("x-event", header))).ShouldBe(expected);
     }
 
     [Fact]
@@ -67,7 +67,7 @@ public sealed class CompareConditionTests
         var condition = new CompareCondition(ConditionSource.Header, "X-Priority", ConditionOperator.Eq,
             [new ConditionValue("5", ConditionValueKind.Number)]);
 
-        condition.Evaluate(Headers(("X-Priority", "5.0"))).Should().BeTrue();
+        condition.Evaluate(Headers(("X-Priority", "5.0"))).ShouldBeTrue();
     }
 
     [Fact]
@@ -75,8 +75,8 @@ public sealed class CompareConditionTests
     {
         var condition = JsonPath("$.items[*].sku", ConditionOperator.Eq, ConditionValue.Of("A1"));
 
-        condition.Evaluate(Body("""{"items":[{"sku":"B2"},{"sku":"A1"}]}""")).Should().BeTrue();
-        condition.Evaluate(Body("""{"items":[{"sku":"B2"}]}""")).Should().BeFalse();
+        condition.Evaluate(Body("""{"items":[{"sku":"B2"},{"sku":"A1"}]}""")).ShouldBeTrue();
+        condition.Evaluate(Body("""{"items":[{"sku":"B2"}]}""")).ShouldBeFalse();
     }
 
     [Theory]
@@ -87,7 +87,7 @@ public sealed class CompareConditionTests
     {
         var condition = JsonPath("$.status", ConditionOperator.Ne, ConditionValue.Of("paid"));
 
-        condition.Evaluate(Body(body)).Should().Be(expected);
+        condition.Evaluate(Body(body)).ShouldBe(expected);
     }
 
     [Theory]
@@ -98,8 +98,8 @@ public sealed class CompareConditionTests
     {
         ConditionValue[] operands = [ConditionValue.Of("paid"), ConditionValue.Of("refunded")];
 
-        JsonPath("$.status", ConditionOperator.In, operands).Evaluate(Body(body)).Should().Be(expectedIn);
-        JsonPath("$.status", ConditionOperator.NotIn, operands).Evaluate(Body(body)).Should().Be(expectedNotIn);
+        JsonPath("$.status", ConditionOperator.In, operands).Evaluate(Body(body)).ShouldBe(expectedIn);
+        JsonPath("$.status", ConditionOperator.NotIn, operands).Evaluate(Body(body)).ShouldBe(expectedNotIn);
     }
 
     [Theory]
@@ -114,7 +114,7 @@ public sealed class CompareConditionTests
     {
         var condition = JsonPath("$.amount", @operator, new ConditionValue("100", ConditionValueKind.Number));
 
-        condition.Evaluate(Body(body)).Should().Be(expected);
+        condition.Evaluate(Body(body)).ShouldBe(expected);
     }
 
     [Theory]
@@ -126,7 +126,7 @@ public sealed class CompareConditionTests
     {
         var condition = new CompareCondition(ConditionSource.Header, "X-Event", @operator, [ConditionValue.Of(operand)]);
 
-        condition.Evaluate(Headers(("X-Event", "pull_request"))).Should().Be(expected);
+        condition.Evaluate(Headers(("X-Event", "pull_request"))).ShouldBe(expected);
     }
 
     [Fact]
@@ -135,8 +135,8 @@ public sealed class CompareConditionTests
         var condition = new CompareCondition(ConditionSource.Header, "X-Event", ConditionOperator.Regex,
             [ConditionValue.Of("^pull_.*$")]);
 
-        condition.Evaluate(Headers(("X-Event", "pull_request"))).Should().BeTrue();
-        condition.Evaluate(Headers(("X-Event", "Pull_request"))).Should().BeFalse();
+        condition.Evaluate(Headers(("X-Event", "pull_request"))).ShouldBeTrue();
+        condition.Evaluate(Headers(("X-Event", "Pull_request"))).ShouldBeFalse();
     }
 
     [Theory]
@@ -149,7 +149,7 @@ public sealed class CompareConditionTests
     {
         var condition = JsonPath("$.id", ConditionOperator.Exists, ConditionValue.Of(operand));
 
-        condition.Evaluate(Body(body)).Should().Be(expected);
+        condition.Evaluate(Body(body)).ShouldBe(expected);
     }
 
     [Fact]
@@ -157,8 +157,8 @@ public sealed class CompareConditionTests
     {
         var context = new EvaluationContext("test", _ => null, new Dictionary<string, string>(), rawBody: "not json");
 
-        JsonPath("$.id", ConditionOperator.Eq, ConditionValue.Of("a")).Evaluate(context).Should().BeFalse();
-        JsonPath("$.id", ConditionOperator.Exists, ConditionValue.Of(false)).Evaluate(context).Should().BeTrue();
+        JsonPath("$.id", ConditionOperator.Eq, ConditionValue.Of("a")).Evaluate(context).ShouldBeFalse();
+        JsonPath("$.id", ConditionOperator.Exists, ConditionValue.Of(false)).Evaluate(context).ShouldBeTrue();
     }
 
     [Fact]
@@ -166,8 +166,8 @@ public sealed class CompareConditionTests
     {
         var condition = JsonPath("$.items[?@.qty > 10 && @.sku == 'A1']", ConditionOperator.Exists, ConditionValue.Of(true));
 
-        condition.Evaluate(Body("""{"items":[{"sku":"A1","qty":12}]}""")).Should().BeTrue();
-        condition.Evaluate(Body("""{"items":[{"sku":"A1","qty":2}]}""")).Should().BeFalse();
+        condition.Evaluate(Body("""{"items":[{"sku":"A1","qty":12}]}""")).ShouldBeTrue();
+        condition.Evaluate(Body("""{"items":[{"sku":"A1","qty":2}]}""")).ShouldBeFalse();
     }
 
     [Fact]
@@ -176,7 +176,7 @@ public sealed class CompareConditionTests
         var condition = new CompareCondition(ConditionSource.Path, "source", ConditionOperator.Ne, [ConditionValue.Of("test")]);
         var context = PathParameters(("source", "github"));
 
-        condition.Evaluate(context).Should().BeTrue();
+        condition.Evaluate(context).ShouldBeTrue();
     }
 
     [Fact]
@@ -186,10 +186,10 @@ public sealed class CompareConditionTests
         var large = JsonPath("$.amount", ConditionOperator.Gte, new ConditionValue("1000", ConditionValueKind.Number));
         var context = Body("""{"status":"paid","amount":10}""");
 
-        new AllCondition([paid, large]).Evaluate(context).Should().BeFalse();
-        new AnyCondition([paid, large]).Evaluate(context).Should().BeTrue();
-        new NotCondition(large).Evaluate(context).Should().BeTrue();
-        new AllCondition([paid, new NotCondition(large)]).UsesJsonPath.Should().BeTrue();
+        new AllCondition([paid, large]).Evaluate(context).ShouldBeFalse();
+        new AnyCondition([paid, large]).Evaluate(context).ShouldBeTrue();
+        new NotCondition(large).Evaluate(context).ShouldBeTrue();
+        new AllCondition([paid, new NotCondition(large)]).UsesJsonPath.ShouldBeTrue();
     }
 
     [Theory]
@@ -207,7 +207,8 @@ public sealed class CompareConditionTests
     {
         var act = () => new CompareCondition(source, selector, @operator, [ConditionValue.Of(operand)]);
 
-        act.Should().Throw<ArgumentException>().WithMessage($"*{expected}*");
+        var exception = Should.Throw<ArgumentException>(act);
+        exception.Message.ShouldContain($"{expected}");
     }
 
     [Fact]
@@ -215,7 +216,8 @@ public sealed class CompareConditionTests
     {
         var act = () => new CompareCondition(ConditionSource.Header, "X-A", ConditionOperator.In, []);
 
-        act.Should().Throw<ArgumentException>().WithMessage("*'in' needs a list of values*");
+        var exception = Should.Throw<ArgumentException>(act);
+        exception.Message.ShouldContain("'in' needs a list of values");
     }
 
     [Fact]
@@ -226,8 +228,8 @@ public sealed class CompareConditionTests
         var context = new EvaluationContext("test", name => name == "X-Tenant" ? "acme" : null,
             new Dictionary<string, string> { ["tenant"] = "acme" }, null);
 
-        condition.Evaluate(context).Should().BeTrue();
-        condition.PathParameters.Should().Equal("tenant");
+        condition.Evaluate(context).ShouldBeTrue();
+        condition.PathParameters.ShouldBe(["tenant"]);
     }
 
     [Fact]
@@ -236,8 +238,8 @@ public sealed class CompareConditionTests
         var condition = new CompareCondition(ConditionSource.Path, "source", ConditionOperator.In,
             [ConditionValue.Of("internal"), ConditionValue.Of("{tenant}-app")]);
 
-        condition.Evaluate(PathParameters(("source", "acme-app"), ("tenant", "acme"))).Should().BeTrue();
-        condition.Evaluate(PathParameters(("source", "other-app"), ("tenant", "acme"))).Should().BeFalse();
+        condition.Evaluate(PathParameters(("source", "acme-app"), ("tenant", "acme"))).ShouldBeTrue();
+        condition.Evaluate(PathParameters(("source", "other-app"), ("tenant", "acme"))).ShouldBeFalse();
     }
 
     [Fact]
@@ -245,7 +247,7 @@ public sealed class CompareConditionTests
     {
         var condition = JsonPath("$.text", ConditionOperator.Eq, ConditionValue.Of("{}"));
 
-        condition.Evaluate(Body("""{"text":"{}"}""")).Should().BeTrue();
+        condition.Evaluate(Body("""{"text":"{}"}""")).ShouldBeTrue();
     }
 
     [Fact]
@@ -253,8 +255,8 @@ public sealed class CompareConditionTests
     {
         var condition = JsonPath("$.code", ConditionOperator.Regex, ConditionValue.Of("^a{2}$"));
 
-        condition.Evaluate(Body("""{"code":"aa"}""")).Should().BeTrue();
-        condition.PathParameters.Should().BeEmpty();
+        condition.Evaluate(Body("""{"code":"aa"}""")).ShouldBeTrue();
+        condition.PathParameters.ShouldBeEmpty();
     }
 
     [Theory]
@@ -266,7 +268,8 @@ public sealed class CompareConditionTests
         var act = () => new CompareCondition(ConditionSource.Header, "X-Tenant", ConditionOperator.Eq,
             [ConditionValue.Of(value)]);
 
-        act.Should().Throw<ArgumentException>().WithMessage($"*{message}*");
+        var exception = Should.Throw<ArgumentException>(act);
+        exception.Message.ShouldContain($"{message}");
     }
 
     private static CompareCondition JsonPath(string path, ConditionOperator @operator, params ConditionValue[] operands) =>

@@ -1,11 +1,11 @@
 using System.Text;
 using System.Text.Json;
-using FluentAssertions;
 using Runax.Hookpipe.Configuration;
 using Runax.Hookpipe.Webhooks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
+using Shouldly;
 
 namespace Runax.Hookpipe.Tests.Webhooks;
 
@@ -57,11 +57,11 @@ public sealed class EnvelopeBuilderTests
 
         var envelope = await _builder.BuildAsync(context, WebhookId, webhook, webhook.Message.Metadata);
 
-        envelope.Id.Should().NotBeNullOrEmpty();
-        envelope.WebhookId.Should().Be(WebhookId);
-        envelope.Method.Should().Be("POST");
-        envelope.Path.Should().Be("/test");
-        envelope.ReceivedAt.Should().BeCloseTo(DateTimeOffset.UtcNow, TimeSpan.FromSeconds(5));
+        envelope.Id.ShouldNotBeNullOrEmpty();
+        envelope.WebhookId.ShouldBe(WebhookId);
+        envelope.Method.ShouldBe("POST");
+        envelope.Path.ShouldBe("/test");
+        envelope.ReceivedAt.ShouldBe(DateTimeOffset.UtcNow, TimeSpan.FromSeconds(5));
     }
 
     [Fact]
@@ -72,9 +72,9 @@ public sealed class EnvelopeBuilderTests
 
         var envelope = await _builder.BuildAsync(context, WebhookId, webhook, webhook.Message.Metadata);
 
-        envelope.Body.Should().NotBeNull();
+        envelope.Body.ShouldNotBeNull();
         var json = (JsonElement)envelope.Body!;
-        json.GetProperty("key").GetString().Should().Be("value");
+        json.GetProperty("key").GetString().ShouldBe("value");
     }
 
     [Fact]
@@ -85,7 +85,7 @@ public sealed class EnvelopeBuilderTests
 
         var envelope = await _builder.BuildAsync(context, WebhookId, webhook, webhook.Message.Metadata);
 
-        envelope.Body.Should().Be("plain text body");
+        envelope.Body.ShouldBe("plain text body");
     }
 
     [Fact]
@@ -96,7 +96,7 @@ public sealed class EnvelopeBuilderTests
 
         var envelope = await _builder.BuildAsync(context, WebhookId, webhook, webhook.Message.Metadata);
 
-        envelope.Body.Should().BeNull();
+        envelope.Body.ShouldBeNull();
     }
 
     [Fact]
@@ -109,8 +109,8 @@ public sealed class EnvelopeBuilderTests
 
         var envelope = await _builder.BuildAsync(context, WebhookId, webhook, webhook.Message.Metadata);
 
-        envelope.Headers.Should().ContainKey("X-Custom");
-        envelope.Headers.Should().ContainKey("X-Other");
+        envelope.Headers.ShouldContainKey("X-Custom");
+        envelope.Headers.ShouldContainKey("X-Other");
     }
 
     [Fact]
@@ -123,8 +123,8 @@ public sealed class EnvelopeBuilderTests
 
         var envelope = await _builder.BuildAsync(context, WebhookId, webhook, webhook.Message.Metadata);
 
-        envelope.Headers.Should().ContainKey("X-Wanted");
-        envelope.Headers.Should().NotContainKey("X-Unwanted");
+        envelope.Headers.ShouldContainKey("X-Wanted");
+        envelope.Headers.ShouldNotContainKey("X-Unwanted");
     }
 
     [Fact]
@@ -136,7 +136,7 @@ public sealed class EnvelopeBuilderTests
 
         var envelope = await _builder.BuildAsync(context, WebhookId, webhook, webhook.Message.Metadata);
 
-        envelope.Headers.Should().BeEmpty();
+        envelope.Headers.ShouldBeEmpty();
     }
 
     [Fact]
@@ -149,7 +149,7 @@ public sealed class EnvelopeBuilderTests
 
         var envelope = await _builder.BuildAsync(context, WebhookId, webhook, webhook.Message.Metadata);
 
-        envelope.Metadata.Should().ContainKey("env").WhoseValue.Should().Be("production");
+        envelope.Metadata.ShouldContainKeyAndValue("env", "production");
     }
 
     [Fact]
@@ -163,7 +163,7 @@ public sealed class EnvelopeBuilderTests
 
         var envelope = await _builder.BuildAsync(context, WebhookId, webhook, rendered);
 
-        envelope.Metadata.Should().ContainKey("source").WhoseValue.Should().Be("github");
+        envelope.Metadata.ShouldContainKeyAndValue("source", "github");
     }
 
     [Fact]
@@ -174,7 +174,7 @@ public sealed class EnvelopeBuilderTests
 
         var envelope = await _builder.BuildAsync(context, WebhookId, webhook, webhook.Message.Metadata);
 
-        envelope.Metadata.Should().BeEmpty();
+        envelope.Metadata.ShouldBeEmpty();
     }
 
     [Fact]
@@ -187,6 +187,6 @@ public sealed class EnvelopeBuilderTests
         var envelope1 = await _builder.BuildAsync(context1, WebhookId, webhook, webhook.Message.Metadata);
         var envelope2 = await _builder.BuildAsync(context2, WebhookId, webhook, webhook.Message.Metadata);
 
-        envelope1.Id.Should().NotBe(envelope2.Id);
+        envelope1.Id.ShouldNotBe(envelope2.Id);
     }
 }

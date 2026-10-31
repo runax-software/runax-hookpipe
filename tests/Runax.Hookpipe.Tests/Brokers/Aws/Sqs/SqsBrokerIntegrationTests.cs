@@ -1,10 +1,10 @@
 using System.Text.Json;
 using Amazon.SQS;
 using Amazon.SQS.Model;
-using FluentAssertions;
 using Runax.Hookpipe.Models;
 using Runax.Hookpipe.Brokers.Aws.Sqs;
 using Microsoft.Extensions.Logging;
+using Shouldly;
 
 namespace Runax.Hookpipe.Tests.Brokers.Aws.Sqs;
 
@@ -80,12 +80,12 @@ public sealed class SqsBrokerIntegrationTests : IAsyncLifetime
             MessageAttributeNames = ["All"],
         });
 
-        response.Messages.Should().HaveCount(1);
+        response.Messages.Count.ShouldBe(1);
 
         var body = response.Messages[0].Body;
         var deserialized = JsonSerializer.Deserialize<JsonElement>(body);
-        deserialized.GetProperty("webhookId").GetString().Should().Be("sqs-integration-test");
-        deserialized.GetProperty("method").GetString().Should().Be("POST");
+        deserialized.GetProperty("webhookId").GetString().ShouldBe("sqs-integration-test");
+        deserialized.GetProperty("method").GetString().ShouldBe("POST");
     }
 
     [Fact]
@@ -112,9 +112,9 @@ public sealed class SqsBrokerIntegrationTests : IAsyncLifetime
             MessageAttributeNames = ["All"],
         });
 
-        response.Messages.Should().HaveCount(1);
+        response.Messages.Count.ShouldBe(1);
         var attrs = response.Messages[0].MessageAttributes;
-        attrs["hookpipe.message.id"].StringValue.Should().Be(messageId);
-        attrs["hookpipe.webhook.id"].StringValue.Should().Be("attr-test");
+        attrs["hookpipe.message.id"].StringValue.ShouldBe(messageId);
+        attrs["hookpipe.webhook.id"].StringValue.ShouldBe("attr-test");
     }
 }

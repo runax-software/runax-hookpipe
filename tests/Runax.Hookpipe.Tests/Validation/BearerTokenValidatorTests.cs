@@ -1,9 +1,9 @@
-using FluentAssertions;
 using Runax.Hookpipe.Configuration;
 using Runax.Hookpipe.Validation;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
+using Shouldly;
 
 namespace Runax.Hookpipe.Tests.Validation;
 
@@ -33,7 +33,7 @@ public sealed class BearerTokenValidatorTests
 
         var result = await _validator.ValidateAsync(context, MakeConfiguration());
 
-        result.Should().BeTrue();
+        result.ShouldBeTrue();
     }
 
     [Fact]
@@ -43,7 +43,7 @@ public sealed class BearerTokenValidatorTests
 
         var result = await _validator.ValidateAsync(context, MakeConfiguration());
 
-        result.Should().BeTrue();
+        result.ShouldBeTrue();
     }
 
     [Fact]
@@ -53,7 +53,7 @@ public sealed class BearerTokenValidatorTests
 
         var result = await _validator.ValidateAsync(context, MakeConfiguration());
 
-        result.Should().BeFalse();
+        result.ShouldBeFalse();
     }
 
     [Fact]
@@ -63,7 +63,7 @@ public sealed class BearerTokenValidatorTests
 
         var result = await _validator.ValidateAsync(context, MakeConfiguration());
 
-        result.Should().BeFalse();
+        result.ShouldBeFalse();
     }
 
     [Theory]
@@ -75,7 +75,7 @@ public sealed class BearerTokenValidatorTests
 
         var result = await _validator.ValidateAsync(context, MakeConfiguration(token));
 
-        result.Should().BeFalse();
+        result.ShouldBeFalse();
     }
 
     [Fact]
@@ -85,6 +85,6 @@ public sealed class BearerTokenValidatorTests
 
         var result = await _validator.ValidateAsync(context, MakeConfiguration());
 
-        result.Should().BeTrue();
+        result.ShouldBeTrue();
     }
 }

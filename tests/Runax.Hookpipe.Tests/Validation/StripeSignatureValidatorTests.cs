@@ -1,11 +1,11 @@
 using System.Security.Cryptography;
 using System.Text;
-using FluentAssertions;
 using Runax.Hookpipe.Configuration;
 using Runax.Hookpipe.Validation;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
+using Shouldly;
 
 namespace Runax.Hookpipe.Tests.Validation;
 
@@ -48,7 +48,7 @@ public sealed class StripeSignatureValidatorTests
 
         var result = await _validator.ValidateAsync(context, MakeConfiguration());
 
-        result.Should().BeTrue();
+        result.ShouldBeTrue();
     }
 
     [Fact]
@@ -61,7 +61,7 @@ public sealed class StripeSignatureValidatorTests
 
         var result = await _validator.ValidateAsync(context, MakeConfiguration("X-Stripe-Signature"));
 
-        result.Should().BeTrue();
+        result.ShouldBeTrue();
     }
 
     [Fact]
@@ -74,7 +74,7 @@ public sealed class StripeSignatureValidatorTests
 
         var result = await _validator.ValidateAsync(context, MakeConfiguration("X-Stripe-Signature"));
 
-        result.Should().BeFalse();
+        result.ShouldBeFalse();
     }
 
     [Fact]
@@ -86,7 +86,7 @@ public sealed class StripeSignatureValidatorTests
 
         var result = await _validator.ValidateAsync(context, MakeConfiguration());
 
-        result.Should().BeFalse();
+        result.ShouldBeFalse();
     }
 
     [Fact]
@@ -99,7 +99,7 @@ public sealed class StripeSignatureValidatorTests
 
         var result = await _validator.ValidateAsync(context, MakeConfiguration());
 
-        result.Should().BeFalse();
+        result.ShouldBeFalse();
     }
 
     [Fact]
@@ -112,7 +112,7 @@ public sealed class StripeSignatureValidatorTests
 
         var result = await _validator.ValidateAsync(context, MakeConfiguration());
 
-        result.Should().BeFalse();
+        result.ShouldBeFalse();
     }
 
     [Fact]
@@ -123,7 +123,7 @@ public sealed class StripeSignatureValidatorTests
 
         var result = await _validator.ValidateAsync(context, MakeConfiguration());
 
-        result.Should().BeFalse();
+        result.ShouldBeFalse();
     }
 
     [Fact]
@@ -133,7 +133,7 @@ public sealed class StripeSignatureValidatorTests
 
         var result = await _validator.ValidateAsync(context, MakeConfiguration());
 
-        result.Should().BeFalse();
+        result.ShouldBeFalse();
     }
 
     [Theory]
@@ -148,7 +148,7 @@ public sealed class StripeSignatureValidatorTests
 
         var result = await _validator.ValidateAsync(context, MakeConfiguration(secret: secret));
 
-        result.Should().BeFalse();
+        result.ShouldBeFalse();
     }
 
     [Fact]
@@ -161,6 +161,6 @@ public sealed class StripeSignatureValidatorTests
 
         await _validator.ValidateAsync(context, MakeConfiguration());
 
-        context.Request.Body.Position.Should().Be(0);
+        context.Request.Body.Position.ShouldBe(0);
     }
 }
