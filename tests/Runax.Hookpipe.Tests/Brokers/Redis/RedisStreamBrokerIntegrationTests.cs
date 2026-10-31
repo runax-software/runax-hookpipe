@@ -1,8 +1,8 @@
 using System.Text.Json;
-using FluentAssertions;
 using Runax.Hookpipe.Models;
 using Runax.Hookpipe.Brokers.Redis;
 using Microsoft.Extensions.Logging;
+using Shouldly;
 using StackExchange.Redis;
 
 namespace Runax.Hookpipe.Tests.Brokers.Redis;
@@ -53,13 +53,13 @@ public sealed class RedisStreamBrokerIntegrationTests : IDisposable
         await _broker.PublishAsync(_streamKey, envelope);
 
         var entries = await _reader.GetDatabase().StreamReadAsync(_streamKey, "0-0");
-        entries.Should().NotBeEmpty();
+        entries.ShouldNotBeEmpty();
 
         var entry = entries[0];
         var payload = entry.Values.First(v => v.Name == "payload").Value.ToString();
         var deserialized = JsonSerializer.Deserialize<JsonElement>(payload);
-        deserialized.GetProperty("webhookId").GetString().Should().Be("redis-integration-test");
-        deserialized.GetProperty("method").GetString().Should().Be("POST");
+        deserialized.GetProperty("webhookId").GetString().ShouldBe("redis-integration-test");
+        deserialized.GetProperty("method").GetString().ShouldBe("POST");
     }
 
     [Fact]
@@ -79,11 +79,11 @@ public sealed class RedisStreamBrokerIntegrationTests : IDisposable
         await _broker.PublishAsync(_streamKey, envelope);
 
         var entries = await _reader.GetDatabase().StreamReadAsync(_streamKey, "0-0");
-        entries.Should().NotBeEmpty();
+        entries.ShouldNotBeEmpty();
 
         var entry = entries[0];
-        entry.Values.First(v => v.Name == "hookpipe.message.id").Value.ToString().Should().Be(messageId);
-        entry.Values.First(v => v.Name == "hookpipe.webhook.id").Value.ToString().Should().Be("field-test");
+        entry.Values.First(v => v.Name == "hookpipe.message.id").Value.ToString().ShouldBe(messageId);
+        entry.Values.First(v => v.Name == "hookpipe.webhook.id").Value.ToString().ShouldBe("field-test");
     }
 
     [Fact]
@@ -105,6 +105,6 @@ public sealed class RedisStreamBrokerIntegrationTests : IDisposable
         }
 
         var entries = await _reader.GetDatabase().StreamReadAsync(_streamKey, "0-0");
-        entries.Should().HaveCount(3);
+        entries.Length.ShouldBe(3);
     }
 }

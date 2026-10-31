@@ -1,11 +1,11 @@
 using System.Net;
 using System.Text;
-using FluentAssertions;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Runax.Hookpipe.Hosting;
+using Shouldly;
 
 namespace Runax.Hookpipe.Tests.Hosting;
 
@@ -40,9 +40,9 @@ public sealed class HookpipeHostingTests : IDisposable
             "/webhooks/library-host", new StringContent("""{"hello":"library"}""", Encoding.UTF8, "application/json"));
         var health = await client.GetAsync("/health/brokers");
 
-        response.StatusCode.Should().Be(HttpStatusCode.Accepted);
-        health.StatusCode.Should().Be(HttpStatusCode.OK);
-        (await health.Content.ReadAsStringAsync()).Should().Contain("\"console\"");
+        response.StatusCode.ShouldBe(HttpStatusCode.Accepted);
+        health.StatusCode.ShouldBe(HttpStatusCode.OK);
+        (await health.Content.ReadAsStringAsync()).ShouldContain("\"console\"");
     }
 
     [Fact]
@@ -73,7 +73,7 @@ public sealed class HookpipeHostingTests : IDisposable
         var response = await app.GetTestClient().PostAsync(
             "/webhooks/ingest/github/events", new StringContent("""{"hello":"params"}""", Encoding.UTF8, "application/json"));
 
-        response.StatusCode.Should().Be(HttpStatusCode.Accepted);
+        response.StatusCode.ShouldBe(HttpStatusCode.Accepted);
     }
 
     [Fact]
@@ -83,7 +83,8 @@ public sealed class HookpipeHostingTests : IDisposable
 
         var act = () => services.AddRunaxHookpipe(_ => { });
 
-        act.Should().Throw<InvalidOperationException>().WithMessage("*LoadYaml*");
+        var exception = Should.Throw<InvalidOperationException>(act);
+        exception.Message.ShouldContain("LoadYaml");
     }
 
     [Fact]
@@ -94,7 +95,8 @@ public sealed class HookpipeHostingTests : IDisposable
 
         var act = () => services.AddRunaxHookpipe(hookpipe => hookpipe.LoadYaml(_configurationPath));
 
-        act.Should().Throw<InvalidOperationException>().WithMessage("*only once*");
+        var exception = Should.Throw<InvalidOperationException>(act);
+        exception.Message.ShouldContain("only once");
     }
 
     [Fact]
@@ -106,7 +108,9 @@ public sealed class HookpipeHostingTests : IDisposable
             .LoadYaml(_configurationPath)
             .LoadYaml("other.yaml"));
 
-        act.Should().Throw<InvalidOperationException>().WithMessage($"*'{_configurationPath}'*LoadYaml only once*");
+        var exception = Should.Throw<InvalidOperationException>(act);
+        exception.Message.ShouldContain($"'{_configurationPath}'");
+        exception.Message.ShouldContain("LoadYaml only once");
     }
 
     [Fact]
@@ -116,9 +120,10 @@ public sealed class HookpipeHostingTests : IDisposable
 
         services.AddRunaxHookpipe(hookpipe => hookpipe.LoadYaml(_configurationPath, reloadOnChange: false));
 
-        services.Should().ContainSingle(d => d.ServiceType == typeof(HookpipeRuntime));
-        services.Should().ContainSingle(d => d.ServiceType == typeof(IHostedService) &&
-                                             d.ImplementationType == typeof(HookpipeHostedService));
+        services.ShouldContain(d => d.ServiceType == typeof(HookpipeRuntime), 1);
+        services.ShouldContain(
+            d => d.ServiceType == typeof(IHostedService) && d.ImplementationType == typeof(HookpipeHostedService),
+            1);
     }
 
     /// <inheritdoc />

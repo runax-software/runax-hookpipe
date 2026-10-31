@@ -1,8 +1,8 @@
-using FluentAssertions;
 using Runax.Hookpipe.Models;
 using Runax.Hookpipe.Brokers.Aws.Sqs;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
+using Shouldly;
 
 namespace Runax.Hookpipe.Tests.Brokers.Aws.Sqs;
 
@@ -27,7 +27,7 @@ public sealed class SqsBrokerTests
     {
         using var broker = CreateBroker();
 
-        broker.Type.Should().Be("sqs");
+        broker.Type.ShouldBe("sqs");
     }
 
     [Fact]
@@ -35,7 +35,7 @@ public sealed class SqsBrokerTests
     {
         var act = () => CreateBroker(MakeSettings("eu-west-1"));
 
-        act.Should().NotThrow().Which.Dispose();
+        Should.NotThrow(act).Dispose();
     }
 
     [Theory]
@@ -47,7 +47,8 @@ public sealed class SqsBrokerTests
 
         var act = () => broker.PublishAsync(topic, MakeEnvelope());
 
-        await act.Should().ThrowAsync<ArgumentException>().WithMessage("*needs a topic*");
+        var exception = await Should.ThrowAsync<ArgumentException>(act);
+        exception.Message.ShouldContain("needs a topic");
     }
 
     [Fact]
@@ -57,7 +58,8 @@ public sealed class SqsBrokerTests
 
         var act = () => broker.PublishAsync("invoices", MakeEnvelope());
 
-        await act.Should().ThrowAsync<ArgumentException>().WithMessage("*no queue URL for topic 'invoices'*");
+        var exception = await Should.ThrowAsync<ArgumentException>(act);
+        exception.Message.ShouldContain("no queue URL for topic 'invoices'");
     }
 
     private static MessageEnvelope MakeEnvelope() => new()

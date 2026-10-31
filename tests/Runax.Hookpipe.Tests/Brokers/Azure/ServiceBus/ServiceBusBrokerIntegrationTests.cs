@@ -1,9 +1,9 @@
 using System.Text.Json;
 using Azure.Messaging.ServiceBus;
-using FluentAssertions;
 using Runax.Hookpipe.Models;
 using Runax.Hookpipe.Brokers.Azure.ServiceBus;
 using Microsoft.Extensions.Logging;
+using Shouldly;
 
 namespace Runax.Hookpipe.Tests.Brokers.Azure.ServiceBus;
 
@@ -59,14 +59,14 @@ public sealed class ServiceBusBrokerIntegrationTests : IAsyncLifetime
         await _broker.PublishAsync(QueueName, envelope);
 
         var received = await ReceiveMessageAsync(messageId);
-        received.Should().NotBeNull();
+        received.ShouldNotBeNull();
         var message = received!;
 
         try
         {
             var deserialized = JsonSerializer.Deserialize<JsonElement>(message.Body.ToString());
-            deserialized.GetProperty("webhookId").GetString().Should().Be("servicebus-integration-test");
-            deserialized.GetProperty("method").GetString().Should().Be("POST");
+            deserialized.GetProperty("webhookId").GetString().ShouldBe("servicebus-integration-test");
+            deserialized.GetProperty("method").GetString().ShouldBe("POST");
         }
         finally
         {
@@ -91,15 +91,15 @@ public sealed class ServiceBusBrokerIntegrationTests : IAsyncLifetime
         await _broker.PublishAsync(QueueName, envelope);
 
         var received = await ReceiveMessageAsync(messageId);
-        received.Should().NotBeNull();
+        received.ShouldNotBeNull();
         var message = received!;
 
         try
         {
-            message.MessageId.Should().Be(messageId);
-            message.ContentType.Should().Be("application/json");
-            message.ApplicationProperties["hookpipe.message.id"].Should().Be(messageId);
-            message.ApplicationProperties["hookpipe.webhook.id"].Should().Be("servicebus-attr-test");
+            message.MessageId.ShouldBe(messageId);
+            message.ContentType.ShouldBe("application/json");
+            message.ApplicationProperties["hookpipe.message.id"].ShouldBe(messageId);
+            message.ApplicationProperties["hookpipe.webhook.id"].ShouldBe("servicebus-attr-test");
         }
         finally
         {

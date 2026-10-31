@@ -1,5 +1,5 @@
-using FluentAssertions;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Shouldly;
 
 namespace Runax.Hookpipe.Api.Tests;
 
@@ -49,7 +49,7 @@ internal sealed class TestApiHost : IDisposable
     {
         var lines = metrics.Split('\n', StringSplitOptions.RemoveEmptyEntries);
 
-        lines.Should().Contain(line =>
+        lines.ShouldContain(line =>
             line.StartsWith($"{metricName}{{", StringComparison.Ordinal) &&
             labels.All(label => line.Contains($"{label.Name}=\"{label.Value}\"", StringComparison.Ordinal)) &&
             line.EndsWith($" {value}", StringComparison.Ordinal));
@@ -62,7 +62,7 @@ internal sealed class TestApiHost : IDisposable
     {
         var lines = metrics.Split('\n', StringSplitOptions.RemoveEmptyEntries);
 
-        lines.Should().NotContain(line =>
+        lines.ShouldNotContain(line =>
             line.StartsWith($"{metricName}{{", StringComparison.Ordinal) &&
             labels.All(label => line.Contains($"{label.Name}=\"{label.Value}\"", StringComparison.Ordinal)));
     }

@@ -1,10 +1,10 @@
 using System.Text.Json;
 using Azure.Messaging.EventHubs;
 using Azure.Messaging.EventHubs.Consumer;
-using FluentAssertions;
 using Runax.Hookpipe.Models;
 using Runax.Hookpipe.Brokers.Azure.EventHubs;
 using Microsoft.Extensions.Logging;
+using Shouldly;
 
 namespace Runax.Hookpipe.Tests.Brokers.Azure.EventHubs;
 
@@ -58,11 +58,11 @@ public sealed class EventHubsBrokerIntegrationTests : IAsyncLifetime
         await _broker.PublishAsync(EventHubName, envelope);
 
         var received = await ReceiveEventAsync(messageId);
-        received.Should().NotBeNull();
+        received.ShouldNotBeNull();
 
         var deserialized = JsonSerializer.Deserialize<JsonElement>(received!.EventBody);
-        deserialized.GetProperty("webhookId").GetString().Should().Be("eventhub-integration-test");
-        deserialized.GetProperty("method").GetString().Should().Be("POST");
+        deserialized.GetProperty("webhookId").GetString().ShouldBe("eventhub-integration-test");
+        deserialized.GetProperty("method").GetString().ShouldBe("POST");
     }
 
     [Fact]
@@ -82,12 +82,12 @@ public sealed class EventHubsBrokerIntegrationTests : IAsyncLifetime
         await _broker.PublishAsync(EventHubName, envelope);
 
         var received = await ReceiveEventAsync(messageId);
-        received.Should().NotBeNull();
+        received.ShouldNotBeNull();
 
-        received!.MessageId.Should().Be(messageId);
-        received.ContentType.Should().Be("application/json");
-        received.Properties["hookpipe.message.id"].Should().Be(messageId);
-        received.Properties["hookpipe.webhook.id"].Should().Be("eventhub-attr-test");
+        received!.MessageId.ShouldBe(messageId);
+        received.ContentType.ShouldBe("application/json");
+        received.Properties["hookpipe.message.id"].ShouldBe(messageId);
+        received.Properties["hookpipe.webhook.id"].ShouldBe("eventhub-attr-test");
     }
 
     private async Task WaitForEventHubAsync()

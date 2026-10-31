@@ -1,9 +1,9 @@
-using FluentAssertions;
 using Runax.Hookpipe.Models;
 using Runax.Hookpipe.Brokers.Health;
 using Runax.Hookpipe.Brokers.Azure.EventHubs;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
+using Shouldly;
 
 namespace Runax.Hookpipe.Tests.Brokers.Azure.EventHubs;
 
@@ -22,7 +22,7 @@ public sealed class EventHubsBrokerTests
     {
         var act = () => CreateBroker();
 
-        await act.Should().NotThrow().Which.DisposeAsync();
+        await Should.NotThrow(act).DisposeAsync();
     }
 
     [Fact]
@@ -30,7 +30,7 @@ public sealed class EventHubsBrokerTests
     {
         await using var broker = CreateBroker();
 
-        broker.Type.Should().Be("azure-eventhubs");
+        broker.Type.ShouldBe("azure-eventhubs");
     }
 
     [Theory]
@@ -51,7 +51,8 @@ public sealed class EventHubsBrokerTests
 
         var act = () => broker.PublishAsync(topic, envelope);
 
-        await act.Should().ThrowAsync<ArgumentException>().WithMessage("*needs a topic*");
+        var exception = await Should.ThrowAsync<ArgumentException>(act);
+        exception.Message.ShouldContain("needs a topic");
     }
 
     [Fact]
@@ -61,6 +62,6 @@ public sealed class EventHubsBrokerTests
 
         var health = await broker.CheckHealthAsync();
 
-        health.Should().Be(new BrokerHealth(BrokerHealthStatus.Unknown, "no event hub to probe"));
+        health.ShouldBe(new BrokerHealth(BrokerHealthStatus.Unknown, "no event hub to probe"));
     }
 }

@@ -2,10 +2,10 @@ using System.Text.Json;
 using Amazon.SimpleNotificationService;
 using Amazon.SQS;
 using Amazon.SQS.Model;
-using FluentAssertions;
 using Runax.Hookpipe.Models;
 using Runax.Hookpipe.Brokers.Aws.Sns;
 using Microsoft.Extensions.Logging;
+using Shouldly;
 
 namespace Runax.Hookpipe.Tests.Brokers.Aws.Sns;
 
@@ -102,15 +102,15 @@ public sealed class SnsBrokerIntegrationTests : IAsyncLifetime
             WaitTimeSeconds = 5,
         });
 
-        response.Messages.Should().HaveCount(1);
+        response.Messages.Count.ShouldBe(1);
 
         // SNS wraps the message in an envelope — parse the SNS wrapper first
         var snsWrapper = JsonSerializer.Deserialize<JsonElement>(response.Messages[0].Body);
         var messageBody = snsWrapper.GetProperty("Message").GetString();
-        messageBody.Should().NotBeNull();
+        messageBody.ShouldNotBeNull();
 
         var deserialized = JsonSerializer.Deserialize<JsonElement>(messageBody!);
-        deserialized.GetProperty("webhookId").GetString().Should().Be("sns-integration-test");
-        deserialized.GetProperty("method").GetString().Should().Be("POST");
+        deserialized.GetProperty("webhookId").GetString().ShouldBe("sns-integration-test");
+        deserialized.GetProperty("method").GetString().ShouldBe("POST");
     }
 }

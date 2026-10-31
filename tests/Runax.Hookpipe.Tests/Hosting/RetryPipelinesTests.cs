@@ -1,7 +1,7 @@
-using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Runax.Hookpipe.Configuration;
 using Runax.Hookpipe.Hosting;
+using Shouldly;
 
 namespace Runax.Hookpipe.Tests.Hosting;
 
@@ -19,7 +19,7 @@ public sealed class RetryPipelinesTests
     {
         var retry = new RetryConfiguration { Backoff = backoff, Factor = 3, Jitter = false };
 
-        RetryPipelines.DelayFor(retry, attempt, jitterSample: 0.99).Should().Be(TimeSpan.FromSeconds(expectedSeconds));
+        RetryPipelines.DelayFor(retry, attempt, jitterSample: 0.99).ShouldBe(TimeSpan.FromSeconds(expectedSeconds));
     }
 
     [Theory]
@@ -30,7 +30,7 @@ public sealed class RetryPipelinesTests
     {
         var retry = new RetryConfiguration { Backoff = RetryBackoff.Constant };
 
-        RetryPipelines.DelayFor(retry, 0, sample).TotalSeconds.Should().BeApproximately(expectedSeconds, 0.001);
+        RetryPipelines.DelayFor(retry, 0, sample).TotalSeconds.ShouldBe(expectedSeconds, 0.001);
     }
 
     [Fact]
@@ -38,8 +38,8 @@ public sealed class RetryPipelinesTests
     {
         var pipelines = new RetryPipelines(NullLoggerFactory.Instance);
 
-        pipelines.Get("console", null).Should().BeNull();
-        pipelines.Get("console", new RetryConfiguration { MaxRetries = 0 }).Should().BeNull();
+        pipelines.Get("console", null).ShouldBeNull();
+        pipelines.Get("console", new RetryConfiguration { MaxRetries = 0 }).ShouldBeNull();
     }
 
     [Fact]
@@ -48,7 +48,7 @@ public sealed class RetryPipelinesTests
         var pipelines = new RetryPipelines(NullLoggerFactory.Instance);
         var retry = new RetryConfiguration();
 
-        pipelines.Get("rabbit", retry).Should().BeSameAs(pipelines.Get("rabbit", retry));
-        pipelines.Get("rabbit", new RetryConfiguration()).Should().NotBeSameAs(pipelines.Get("rabbit", retry));
+        pipelines.Get("rabbit", retry).ShouldBeSameAs(pipelines.Get("rabbit", retry));
+        pipelines.Get("rabbit", new RetryConfiguration()).ShouldNotBeSameAs(pipelines.Get("rabbit", retry));
     }
 }

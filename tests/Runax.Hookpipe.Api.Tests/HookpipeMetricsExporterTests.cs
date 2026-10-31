@@ -1,4 +1,4 @@
-using FluentAssertions;
+using Shouldly;
 
 namespace Runax.Hookpipe.Api.Tests;
 
@@ -11,5 +11,5 @@ public sealed class HookpipeMetricsExporterTests
     [InlineData("hookpipe.validation.failures", null, true, "hookpipe_validation_failures_total")]
     [InlineData("hookpipe.request.duration", "s", false, "hookpipe_request_duration_seconds")]
     public void PrometheusName_KeepsTheExportedNames(string instrument, string? unit, bool isCounter, string expected) =>
-        HookpipeMetricsExporter.PrometheusName(instrument, unit, isCounter).Should().Be(expected);
+        HookpipeMetricsExporter.PrometheusName(instrument, unit, isCounter).ShouldBe(expected);
 }

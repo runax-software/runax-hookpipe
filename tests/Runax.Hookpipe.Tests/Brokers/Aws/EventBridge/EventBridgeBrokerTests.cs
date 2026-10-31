@@ -1,8 +1,8 @@
-using FluentAssertions;
 using Runax.Hookpipe.Models;
 using Runax.Hookpipe.Brokers.Aws.EventBridge;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
+using Shouldly;
 
 namespace Runax.Hookpipe.Tests.Brokers.Aws.EventBridge;
 
@@ -29,7 +29,7 @@ public sealed class EventBridgeBrokerTests
     {
         using var broker = CreateBroker();
 
-        broker.Type.Should().Be("eventbridge");
+        broker.Type.ShouldBe("eventbridge");
     }
 
     [Fact]
@@ -37,7 +37,7 @@ public sealed class EventBridgeBrokerTests
     {
         var act = () => CreateBroker(MakeSettings(source: "my-app"));
 
-        act.Should().NotThrow().Which.Dispose();
+        Should.NotThrow(act).Dispose();
     }
 
     [Theory]
@@ -49,7 +49,8 @@ public sealed class EventBridgeBrokerTests
 
         var act = () => broker.PublishAsync(topic, MakeEnvelope());
 
-        await act.Should().ThrowAsync<ArgumentException>().WithMessage("*needs a topic*");
+        var exception = await Should.ThrowAsync<ArgumentException>(act);
+        exception.Message.ShouldContain("needs a topic");
     }
 
     private static MessageEnvelope MakeEnvelope() => new()

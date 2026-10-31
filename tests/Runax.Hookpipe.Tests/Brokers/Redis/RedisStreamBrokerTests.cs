@@ -1,8 +1,8 @@
-using FluentAssertions;
 using Runax.Hookpipe.Models;
 using Runax.Hookpipe.Brokers.Redis;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
+using Shouldly;
 
 namespace Runax.Hookpipe.Tests.Brokers.Redis;
 
@@ -22,7 +22,7 @@ public sealed class RedisStreamBrokerTests
     {
         using var broker = CreateBroker();
 
-        broker.Type.Should().Be("redis");
+        broker.Type.ShouldBe("redis");
     }
 
     [Theory]
@@ -43,6 +43,7 @@ public sealed class RedisStreamBrokerTests
 
         var act = () => broker.PublishAsync(topic, envelope);
 
-        await act.Should().ThrowAsync<ArgumentException>().WithMessage("*needs a topic*");
+        var exception = await Should.ThrowAsync<ArgumentException>(act);
+        exception.Message.ShouldContain("needs a topic");
     }
 }

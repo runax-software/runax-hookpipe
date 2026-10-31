@@ -67,8 +67,8 @@ dotnet test -- --filter-not-trait "Category=Integration"   # unit tests
 dotnet test -- --filter-trait "Category=Integration"       # integration tests (requires docker compose)
 ```
 
-FluentAssertions is to be replaced by Shouldly, as in runax-messaging: version 8 and later needs a paid
-license for commercial use. Don't add other paid or commercially licensed packages.
+Tests use xUnit v3 on Microsoft.Testing.Platform, NSubstitute, and Shouldly, as in runax-messaging.
+Don't add paid or commercially licensed packages.
 
 ## Logging convention
 

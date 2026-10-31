@@ -1,6 +1,6 @@
-using FluentAssertions;
 using Runax.Hookpipe.Configuration;
 using Runax.Hookpipe.Brokers;
+using Shouldly;
 
 namespace Runax.Hookpipe.Tests.Brokers;
 
@@ -28,7 +28,7 @@ public sealed class BrokerFactoryTests
                   - to: hubs:orders
             """);
 
-        BrokerFactory.TopicsFor(configuration, "hubs").Should().BeEquivalentTo("orders", "refunds");
-        BrokerFactory.TopicsFor(configuration, "console").Should().BeEmpty();
+        BrokerFactory.TopicsFor(configuration, "hubs").ShouldBe(["orders", "refunds"], ignoreOrder: true);
+        BrokerFactory.TopicsFor(configuration, "console").ShouldBeEmpty();
     }
 }

@@ -1,9 +1,9 @@
-using FluentAssertions;
 using Amazon.EventBridge;
 using Amazon.EventBridge.Model;
 using Runax.Hookpipe.Models;
 using Runax.Hookpipe.Brokers.Aws.EventBridge;
 using Microsoft.Extensions.Logging;
+using Shouldly;
 
 namespace Runax.Hookpipe.Tests.Brokers.Aws.EventBridge;
 
@@ -73,7 +73,7 @@ public sealed class EventBridgeBrokerIntegrationTests : IAsyncLifetime
         // PutEvents should succeed without throwing
         var act = () => _broker.PublishAsync(DetailType, envelope);
 
-        await act.Should().NotThrowAsync();
+        await Should.NotThrowAsync(act);
     }
 
     [Fact]
@@ -92,6 +92,6 @@ public sealed class EventBridgeBrokerIntegrationTests : IAsyncLifetime
         // Should not throw — FailedEntryCount should be 0
         var act = () => _broker.PublishAsync(DetailType, envelope);
 
-        await act.Should().NotThrowAsync();
+        await Should.NotThrowAsync(act);
     }
 }

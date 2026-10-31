@@ -1,7 +1,7 @@
-using FluentAssertions;
 using Runax.Hookpipe.Conditions;
 using Runax.Hookpipe.Configuration;
 using Runax.Hookpipe.Brokers.RabbitMq;
+using Shouldly;
 
 namespace Runax.Hookpipe.Tests.Configuration;
 
@@ -60,13 +60,13 @@ public sealed class ConfigurationLoaderTests
                 to: console
             """);
 
-        configuration.Server.Paths.Webhooks.Should().Be("/hooks");
+        configuration.Server.Paths.Webhooks.ShouldBe("/hooks");
 
         var rabbit = configuration.Brokers["rabbit"];
-        rabbit.Type.Should().Be("rabbitmq");
-        rabbit.Settings.Should().BeOfType<RabbitMqBrokerSettings>()
-            .Which.Should().BeEquivalentTo(new RabbitMqBrokerSettings { Uri = "amqp://localhost", ExchangeName = "webhooks" });
-        rabbit.Publish.Retry.Should().BeEquivalentTo(new RetryConfiguration
+        rabbit.Type.ShouldBe("rabbitmq");
+        rabbit.Settings.ShouldBeOfType<RabbitMqBrokerSettings>()
+            .ShouldBeEquivalentTo(new RabbitMqBrokerSettings { Uri = "amqp://localhost", ExchangeName = "webhooks" });
+        rabbit.Publish.Retry.ShouldBeEquivalentTo(new RetryConfiguration
         {
             MaxRetries = 5,
             Delay = TimeSpan.FromMilliseconds(500),
@@ -75,34 +75,39 @@ public sealed class ConfigurationLoaderTests
             MaxDelay = TimeSpan.FromMinutes(1),
             Jitter = false,
         });
-        configuration.Brokers["console"].Settings.Should().BeNull();
+        configuration.Brokers["console"].Settings.ShouldBeNull();
 
         var github = configuration.Webhooks["github"];
-        github.Path.Should().Be("github");
-        github.Methods.Should().Equal("POST");
-        github.Validate.Should().HaveCount(2);
-        github.Validate[0].Should().BeEquivalentTo(
-            new ValidatorConfiguration { Type = "hmac-sha256", Header = "X-Hub-Signature-256", Secret = "s3cret" });
-        github.Validate[1].Allow.Should().Equal("192.30.252.0/22", "10.0.0.1");
-        github.Message.IncludeHeaders.Should().BeTrue();
-        github.Message.HeaderNames.Should().Equal("X-GitHub-Event");
-        github.To.Should().BeNull();
-        github.Route.Should().HaveCount(3);
-        github.Route![0].To.Should().BeEmpty();
-        github.Route[0].When.Should().BeOfType<CompareCondition>()
-            .Which.Should().Match<CompareCondition>(condition =>
-                condition.Source == ConditionSource.Header && condition.Operator == ConditionOperator.Eq);
-        github.Route[1].To.Should().Equal(new Target("rabbit", "github.pr"));
-        github.Route[2].When.Should().BeNull();
-        github.Route[2].To.Should().Equal(new Target("rabbit", "github.other"), new Target("console", null));
+        github.Path.ShouldBe("github");
+        github.Methods.ShouldBe(["POST"]);
+        github.Validate.Count.ShouldBe(2);
+        var validator = github.Validate[0];
+        validator.Type.ShouldBe("hmac-sha256");
+        validator.Header.ShouldBe("X-Hub-Signature-256");
+        validator.Secret.ShouldBe("s3cret");
+        validator.Token.ShouldBeNull();
+        validator.Key.ShouldBeNull();
+        validator.Allow.ShouldBeEmpty();
+        github.Validate[1].Allow.ShouldBe(["192.30.252.0/22", "10.0.0.1"]);
+        github.Message.IncludeHeaders.ShouldBeTrue();
+        github.Message.HeaderNames.ShouldBe(["X-GitHub-Event"]);
+        github.To.ShouldBeNull();
+        github.Route.ShouldNotBeNull().Count.ShouldBe(3);
+        github.Route[0].To.ShouldBeEmpty();
+        var condition = github.Route[0].When.ShouldBeOfType<CompareCondition>();
+        condition.Source.ShouldBe(ConditionSource.Header);
+        condition.Operator.ShouldBe(ConditionOperator.Eq);
+        github.Route[1].To.ShouldBe([new Target("rabbit", "github.pr")]);
+        github.Route[2].When.ShouldBeNull();
+        github.Route[2].To.ShouldBe([new Target("rabbit", "github.other"), new Target("console", null)]);
 
         var ingest = configuration.Webhooks["ingest"];
-        ingest.Path.Should().Be("ingest/{source}");
-        ingest.Methods.Should().Equal("POST", "PUT");
-        ingest.RateLimit.Should().BeEquivalentTo(new RateLimitConfiguration { Requests = 10, Window = TimeSpan.FromSeconds(30) });
-        ingest.Message.Body.Should().BeFalse();
-        ingest.Message.Metadata.Should().Equal(new Dictionary<string, string> { ["source"] = "{source}" });
-        ingest.To.Should().Equal(new Target("console", null));
+        ingest.Path.ShouldBe("ingest/{source}");
+        ingest.Methods.ShouldBe(["POST", "PUT"]);
+        ingest.RateLimit.ShouldBeEquivalentTo(new RateLimitConfiguration { Requests = 10, Window = TimeSpan.FromSeconds(30) });
+        ingest.Message.Body.ShouldBeFalse();
+        ingest.Message.Metadata.ShouldBe(new Dictionary<string, string> { ["source"] = "{source}" });
+        ingest.To.ShouldBe([new Target("console", null)]);
     }
 
     [Fact]
@@ -116,14 +121,14 @@ public sealed class ConfigurationLoaderTests
             """);
 
         var ping = configuration.Webhooks["ping"];
-        configuration.Server.Paths.Webhooks.Should().Be("/webhooks");
-        ping.Path.Should().Be("ping");
-        ping.Methods.Should().Equal("POST");
-        ping.Validate.Should().BeEmpty();
-        ping.RateLimit.Should().BeNull();
-        ping.Message.Body.Should().BeTrue();
-        ping.Message.IncludeHeaders.Should().BeFalse();
-        configuration.Brokers["console"].Publish.Retry.Should().BeNull();
+        configuration.Server.Paths.Webhooks.ShouldBe("/webhooks");
+        ping.Path.ShouldBe("ping");
+        ping.Methods.ShouldBe(["POST"]);
+        ping.Validate.ShouldBeEmpty();
+        ping.RateLimit.ShouldBeNull();
+        ping.Message.Body.ShouldBeTrue();
+        ping.Message.IncludeHeaders.ShouldBeFalse();
+        configuration.Brokers["console"].Publish.Retry.ShouldBeNull();
     }
 
     [Theory]
@@ -138,7 +143,7 @@ public sealed class ConfigurationLoaderTests
             {{Console}}
             """);
 
-        configuration.Server.Paths.Webhooks.Should().Be(prefix == "/" ? "/" : "/api/hooks");
+        configuration.Server.Paths.Webhooks.ShouldBe(prefix == "/" ? "/" : "/api/hooks");
     }
 
     [Fact]
@@ -155,10 +160,10 @@ public sealed class ConfigurationLoaderTests
                   Retry: { MaxRetries: 1, maxDelay: 5s }
             """);
 
-        configuration.Brokers["rabbit"].Settings.Should().BeOfType<RabbitMqBrokerSettings>()
-            .Which.ExchangeName.Should().Be("events");
-        configuration.Brokers["rabbit"].Publish.Retry!.MaxRetries.Should().Be(1);
-        configuration.Brokers["rabbit"].Publish.Retry!.MaxDelay.Should().Be(TimeSpan.FromSeconds(5));
+        configuration.Brokers["rabbit"].Settings.ShouldBeOfType<RabbitMqBrokerSettings>()
+            .ExchangeName.ShouldBe("events");
+        configuration.Brokers["rabbit"].Publish.Retry!.MaxRetries.ShouldBe(1);
+        configuration.Brokers["rabbit"].Publish.Retry!.MaxDelay.ShouldBe(TimeSpan.FromSeconds(5));
     }
 
     [Fact]
@@ -173,8 +178,8 @@ public sealed class ConfigurationLoaderTests
                 to: console
             """);
 
-        configuration.Brokers.Should().ContainKey("console");
-        configuration.Webhooks["PING"].To.Should().Equal(new Target("Console", null));
+        configuration.Brokers.ShouldContainKey("console");
+        configuration.Webhooks["PING"].To.ShouldBe([new Target("Console", null)]);
     }
 
     [Fact]
@@ -190,8 +195,10 @@ public sealed class ConfigurationLoaderTests
                 type: stdout
             """);
 
-        errors.Should().ContainSingle()
-            .Which.Should().Contain("version: missing").And.Contain("v1").And.Contain("docs/upgrading.md");
+        var error = errors.ShouldHaveSingleItem();
+        error.ShouldContain("version: missing");
+        error.ShouldContain("v1");
+        error.ShouldContain("docs/upgrading.md");
     }
 
     [Fact]
@@ -201,7 +208,7 @@ public sealed class ConfigurationLoaderTests
             version: 3
             """);
 
-        errors.Should().ContainSingle().Which.Should().StartWith("version: unsupported version");
+        errors.ShouldHaveSingleItem().ShouldStartWith("version: unsupported version");
     }
 
     [Fact]
@@ -222,7 +229,7 @@ public sealed class ConfigurationLoaderTests
                 to: console
             """);
 
-        errors.Should().Equal("webhooks.github.validate[0].secrett: unknown key");
+        errors.ShouldBe(["webhooks.github.validate[0].secrett: unknown key"]);
     }
 
     [Fact]
@@ -244,14 +251,18 @@ public sealed class ConfigurationLoaderTests
             typo: true
             """, "test.yaml");
 
-        var exception = act.Should().Throw<HookpipeConfigurationException>().Which;
-        exception.ConfigurationSource.Should().Be("test.yaml");
-        exception.Message.Should().Contain("test.yaml").And.Contain("4 errors");
-        exception.Errors.Should().BeEquivalentTo(
-            "brokers.console.colour: unknown key",
-            "webhooks.a.to: target 'missing' names unknown broker 'missing'",
-            "webhooks.b.route[0]: only the last rule may leave out 'when'; the rules after it could never match",
-            "typo: unknown key");
+        var exception = Should.Throw<HookpipeConfigurationException>(act);
+        exception.ConfigurationSource.ShouldBe("test.yaml");
+        exception.Message.ShouldContain("test.yaml");
+        exception.Message.ShouldContain("4 errors");
+        exception.Errors.ShouldBe(
+            [
+                "brokers.console.colour: unknown key",
+                "webhooks.a.to: target 'missing' names unknown broker 'missing'",
+                "webhooks.b.route[0]: only the last rule may leave out 'when'; the rules after it could never match",
+                "typo: unknown key",
+            ],
+            ignoreOrder: true);
     }
 
     [Fact]
@@ -267,7 +278,7 @@ public sealed class ConfigurationLoaderTests
                   ExchangeName: b
             """);
 
-        errors.Should().Equal("brokers.rabbit.settings.ExchangeName: duplicate key (same as 'exchange_name')");
+        errors.ShouldBe(["brokers.rabbit.settings.ExchangeName: duplicate key (same as 'exchange_name')"]);
     }
 
     [Fact]
@@ -281,7 +292,7 @@ public sealed class ConfigurationLoaderTests
                 type: stdout
             """);
 
-        errors.Should().ContainSingle().Which.Should().StartWith("brokers.Console: duplicate ID");
+        errors.ShouldHaveSingleItem().ShouldStartWith("brokers.Console: duplicate ID");
     }
 
     [Theory]
@@ -295,7 +306,7 @@ public sealed class ConfigurationLoaderTests
                 type: stdout
             """);
 
-        errors.Should().ContainSingle().Which.Should().Contain("IDs may use only letters, digits");
+        errors.ShouldHaveSingleItem().ShouldContain("IDs may use only letters, digits");
     }
 
     [Fact]
@@ -305,7 +316,7 @@ public sealed class ConfigurationLoaderTests
             brokers:
               none:
                 type: stdout
-            """).Should().Contain(error => error.Contains("'none' is reserved"));
+            """).ShouldContain(error => error.Contains("'none' is reserved"));
     }
 
     [Fact]
@@ -336,10 +347,10 @@ public sealed class ConfigurationLoaderTests
                     to: rabbit:events
                 """);
 
-            configuration.Brokers["rabbit"].Settings.Should().BeEquivalentTo(
+            configuration.Brokers["rabbit"].Settings.ShouldBeEquivalentTo(
                 new RabbitMqBrokerSettings { Uri = "amqp://env-host", ExchangeName = "fallback" });
-            configuration.Webhooks["a"].Validate[0].Token.Should().Be("file-secret");
-            configuration.Webhooks["a"].Message.Metadata["literal"].Should().Be("${NOT_A_VARIABLE}");
+            configuration.Webhooks["a"].Validate[0].Token.ShouldBe("file-secret");
+            configuration.Webhooks["a"].Message.Metadata["literal"].ShouldBe("${NOT_A_VARIABLE}");
         }
         finally
         {
@@ -360,7 +371,7 @@ public sealed class ConfigurationLoaderTests
                   uri: ${{{missingEnv}}}
             """);
 
-        errors.Should().Contain($"brokers.rabbit.settings.uri: environment variable '{missingEnv}' is not set");
+        errors.ShouldContain($"brokers.rabbit.settings.uri: environment variable '{missingEnv}' is not set");
     }
 
     [Fact]
@@ -381,19 +392,22 @@ public sealed class ConfigurationLoaderTests
                   retry: { delay: "${{{delayEnv}}}" }
             """);
 
-        var exception = act.Should().Throw<HookpipeConfigurationException>().Which;
-        exception.Errors.Should().HaveCount(2);
-        exception.Message.Should().NotContain("top-secret");
+        var exception = Should.Throw<HookpipeConfigurationException>(act);
+        exception.Errors.Count.ShouldBe(2);
+        exception.Message.ShouldNotContain("top-secret");
     }
 
     [Fact]
     public void LoadFromString_UnknownBrokerType_ListsKnownTypes()
     {
-        Errors("""
+        var error = Errors("""
             brokers:
               queue:
                 type: kafak
-            """).Should().ContainSingle().Which.Should().Contain("unknown broker type 'kafak'").And.Contain("kafka");
+            """).ShouldHaveSingleItem();
+
+        error.ShouldContain("unknown broker type 'kafak'");
+        error.ShouldContain("kafka");
     }
 
     [Fact]
@@ -413,11 +427,14 @@ public sealed class ConfigurationLoaderTests
                   pretty: true
             """);
 
-        errors.Should().BeEquivalentTo(
-            "brokers.rabbit.settings.url_env: unknown key",
-            "brokers.rabbit.settings.uri: required",
-            "brokers.kafka.settings.bootstrap_servers: required",
-            "brokers.console.settings: 'stdout' brokers take no settings");
+        errors.ShouldBe(
+            [
+                "brokers.rabbit.settings.url_env: unknown key",
+                "brokers.rabbit.settings.uri: required",
+                "brokers.kafka.settings.bootstrap_servers: required",
+                "brokers.console.settings: 'stdout' brokers take no settings",
+            ],
+            ignoreOrder: true);
     }
 
     [Theory]
@@ -434,7 +451,7 @@ public sealed class ConfigurationLoaderTests
                 publish:
                   retry:
                     {{setting}}
-            """).Should().ContainSingle().Which.Should().StartWith(expected);
+            """).ShouldHaveSingleItem().ShouldStartWith(expected);
     }
 
     [Fact]
@@ -445,7 +462,7 @@ public sealed class ConfigurationLoaderTests
             webhooks:
               a:
                 methods: [POST]
-            """).Should().Equal("webhooks.a: needs 'to' or 'route' (use 'to: none' to publish nothing)");
+            """).ShouldBe(["webhooks.a: needs 'to' or 'route' (use 'to: none' to publish nothing)"]);
     }
 
     [Fact]
@@ -458,7 +475,7 @@ public sealed class ConfigurationLoaderTests
                 to: console
                 route:
                   - to: console
-            """).Should().Equal("webhooks.a: has both 'to' and 'route'; use one");
+            """).ShouldBe(["webhooks.a: has both 'to' and 'route'; use one"]);
     }
 
     [Theory]
@@ -470,7 +487,7 @@ public sealed class ConfigurationLoaderTests
             webhooks:
               a:
                 to: {{to}}
-            """).Webhooks["a"].To.Should().BeEmpty();
+            """).Webhooks["a"].To.ShouldBeEmpty();
     }
 
     [Theory]
@@ -507,7 +524,7 @@ public sealed class ConfigurationLoaderTests
             webhooks:
               a:
                 to: {{to}}
-            """).Should().ContainSingle().Which.Should().Contain(expected);
+            """).ShouldHaveSingleItem().ShouldContain(expected);
     }
 
     [Fact]
@@ -538,9 +555,9 @@ public sealed class ConfigurationLoaderTests
             """).Webhooks["ingest"];
 
         webhook.To!.Select(target => target.TopicTemplate?.Text)
-            .Should().Equal("payments.{$.type:-other}", "{metadata.tenant}.{source}", "{$.queue}", null);
-        webhook.To![0].TopicTemplate!.Placeholders.Single().Default.Should().Be("other");
-        webhook.Message.MetadataTemplates["tenant"].Placeholders.Single().Source.Should().Be(TemplateSource.Header);
+            .ShouldBe(["payments.{$.type:-other}", "{metadata.tenant}.{source}", "{$.queue}", null]);
+        webhook.To![0].TopicTemplate!.Placeholders.Single().Default.ShouldBe("other");
+        webhook.Message.MetadataTemplates["tenant"].Placeholders.Single().Source.ShouldBe(TemplateSource.Header);
     }
 
     [Theory]
@@ -550,7 +567,7 @@ public sealed class ConfigurationLoaderTests
     [InlineData("\"{source\"", "has no closing '}'")]
     public void LoadFromString_InvalidMetadataTemplate_Throws(string value, string expected)
     {
-        Errors($$"""
+        var error = Errors($$"""
             brokers:
               console:
                 type: stdout
@@ -562,8 +579,10 @@ public sealed class ConfigurationLoaderTests
                     other: x
                     value: {{value}}
                 to: console
-            """).Should().ContainSingle().Which.Should()
-            .StartWith("webhooks.ingest.message.metadata.value:").And.Contain(expected);
+            """).ShouldHaveSingleItem();
+
+        error.ShouldStartWith("webhooks.ingest.message.metadata.value:");
+        error.ShouldContain(expected);
     }
 
     [Fact]
@@ -581,9 +600,12 @@ public sealed class ConfigurationLoaderTests
                   - when: { header: X-Event, eq: "{tenant}" }
                     to: "kafka:events.{source}"
                   - to: kafka:other
-            """).Should().BeEquivalentTo(
-            "webhooks.ingest.route[0].when: path parameter 'tenant' isn't in the webhook's path 'ingest'",
-            "webhooks.ingest.route[0].to: placeholder '{source}': path parameter 'source' isn't in the webhook's path 'ingest'");
+            """).ShouldBe(
+            [
+                "webhooks.ingest.route[0].when: path parameter 'tenant' isn't in the webhook's path 'ingest'",
+                "webhooks.ingest.route[0].to: placeholder '{source}': path parameter 'source' isn't in the webhook's path 'ingest'",
+            ],
+            ignoreOrder: true);
     }
 
     [Fact]
@@ -599,7 +621,7 @@ public sealed class ConfigurationLoaderTests
                   - when: { header: X-Event, eq: "{header.X-Other}" }
                     to: console
                   - to: none
-            """).Should().ContainSingle().Which.Should().Contain("condition values can only use path parameters");
+            """).ShouldHaveSingleItem().ShouldContain("condition values can only use path parameters");
     }
 
     [Fact]
@@ -615,7 +637,7 @@ public sealed class ConfigurationLoaderTests
             webhooks:
               a:
                 to: { broker: sqs, topic: orders }
-            """).Webhooks["a"].To.Should().Equal(new Target("sqs", "orders"));
+            """).Webhooks["a"].To.ShouldBe([new Target("sqs", "orders")]);
     }
 
     [Fact]
@@ -628,8 +650,8 @@ public sealed class ConfigurationLoaderTests
                 route:
                   - when: { header: X-Event, eq: push }
                     to: console
-            """).Should().Equal(
-            "webhooks.a.route[0].when: the last rule can't have 'when'; add a final rule with only 'to'");
+            """).ShouldBe([
+            "webhooks.a.route[0].when: the last rule can't have 'when'; add a final rule with only 'to'"]);
     }
 
     [Theory]
@@ -651,7 +673,7 @@ public sealed class ConfigurationLoaderTests
                 validate:
                   {{validator}}
                 to: console
-            """).Should().ContainSingle().Which.Should().Contain(expected);
+            """).ShouldHaveSingleItem().ShouldContain(expected);
     }
 
     [Fact]
@@ -668,7 +690,7 @@ public sealed class ConfigurationLoaderTests
                   - type: ip-allowlist
                     allow: ${{{allowEnv}}}
                 to: console
-            """).Webhooks["a"].Validate[0].Allow.Should().Equal("10.0.0.1", "192.168.0.0/16");
+            """).Webhooks["a"].Validate[0].Allow.ShouldBe(["10.0.0.1", "192.168.0.0/16"]);
     }
 
     [Fact]
@@ -682,7 +704,7 @@ public sealed class ConfigurationLoaderTests
                   - type: stripe-v1
                     secret: whsec_test
                 to: console
-            """).Webhooks["stripe"].Validate[0].Header.Should().BeNull();
+            """).Webhooks["stripe"].Validate[0].Header.ShouldBeNull();
     }
 
     [Fact]
@@ -697,7 +719,7 @@ public sealed class ConfigurationLoaderTests
               b:
                 path: /Ingest/{name}
                 to: console
-            """).Should().ContainSingle().Which.Should().Contain("is the same as webhook 'a's route");
+            """).ShouldHaveSingleItem().ShouldContain("is the same as webhook 'a's route");
     }
 
     [Theory]
@@ -715,7 +737,7 @@ public sealed class ConfigurationLoaderTests
               a:
                 path: {{path}}
                 to: console
-            """).Should().ContainSingle().Which.Should().Contain("would shadow the service's /health or /metrics routes");
+            """).ShouldHaveSingleItem().ShouldContain("would shadow the service's /health or /metrics routes");
     }
 
     [Theory]
@@ -731,7 +753,7 @@ public sealed class ConfigurationLoaderTests
               a:
                 path: {{path}}
                 to: console
-            """).Should().Contain(error => error.Contains(expected));
+            """).ShouldContain(error => error.Contains(expected));
     }
 
     [Fact]
@@ -743,7 +765,7 @@ public sealed class ConfigurationLoaderTests
               a:
                 methods: [POST, "GET /"]
                 to: console
-            """).Should().Equal("webhooks.a.methods: 'GET /' isn't an HTTP method");
+            """).ShouldBe(["webhooks.a.methods: 'GET /' isn't an HTTP method"]);
     }
 
     [Fact]
@@ -763,14 +785,14 @@ public sealed class ConfigurationLoaderTests
                   - to: none
             """).Webhooks["a"].Route![0].When;
 
-        var any = when.Should().BeOfType<AnyCondition>().Which;
-        any.Conditions.Should().HaveCount(2);
-        var all = any.Conditions[0].Should().BeOfType<AllCondition>().Which;
-        all.Conditions[1].Should().BeOfType<CompareCondition>()
-            .Which.Operands.Should().Equal(new ConditionValue("100000", ConditionValueKind.Number));
-        any.Conditions[1].Should().BeOfType<NotCondition>()
-            .Which.Condition.Should().BeOfType<CompareCondition>()
-            .Which.Operands.Should().Equal(ConditionValue.Of("low"), ConditionValue.Of("normal"));
+        var any = when.ShouldBeOfType<AnyCondition>();
+        any.Conditions.Count.ShouldBe(2);
+        var all = any.Conditions[0].ShouldBeOfType<AllCondition>();
+        all.Conditions[1].ShouldBeOfType<CompareCondition>()
+            .Operands.ShouldBe([new ConditionValue("100000", ConditionValueKind.Number)]);
+        any.Conditions[1].ShouldBeOfType<NotCondition>()
+            .Condition.ShouldBeOfType<CompareCondition>()
+            .Operands.ShouldBe([ConditionValue.Of("low"), ConditionValue.Of("normal")]);
     }
 
     [Theory]
@@ -797,7 +819,7 @@ public sealed class ConfigurationLoaderTests
                   - when: {{when}}
                     to: console
                   - to: none
-            """).Should().Contain(error => error.Contains(expected));
+            """).ShouldContain(error => error.Contains(expected));
     }
 
     [Fact]
@@ -814,7 +836,7 @@ public sealed class ConfigurationLoaderTests
                   - when: {{when}}
                     to: console
                   - to: none
-            """).Should().ContainSingle().Which.Should().Contain("conditions nest deeper than 8 levels");
+            """).ShouldHaveSingleItem().ShouldContain("conditions nest deeper than 8 levels");
     }
 
     [Fact]
@@ -823,13 +845,13 @@ public sealed class ConfigurationLoaderTests
         Errors("""
             version: 2
             brokers: [unclosed
-            """).Should().ContainSingle().Which.Should().Contain("invalid YAML at line");
+            """).ShouldHaveSingleItem().ShouldContain("invalid YAML at line");
     }
 
     [Fact]
     public void LoadFromString_EmptyDocument_Throws()
     {
-        Errors(string.Empty).Should().Equal("(root): the config is empty");
+        Errors(string.Empty).ShouldBe(["(root): the config is empty"]);
     }
 
     [Fact]
@@ -837,7 +859,7 @@ public sealed class ConfigurationLoaderTests
     {
         var act = () => ConfigurationLoader.Load(Path.Combine(Path.GetTempPath(), $"missing-{Guid.NewGuid():N}.yaml"));
 
-        act.Should().Throw<FileNotFoundException>();
+        Should.Throw<FileNotFoundException>(act);
     }
 
     private static HookpipeConfiguration Load(string body) => ConfigurationLoader.LoadFromString($"version: 2\n{body}");
@@ -850,6 +872,6 @@ public sealed class ConfigurationLoaderTests
             : $"version: 2\n{yaml}";
         var act = () => ConfigurationLoader.LoadFromString(source);
 
-        return act.Should().Throw<HookpipeConfigurationException>().Which.Errors;
+        return Should.Throw<HookpipeConfigurationException>(act).Errors;
     }
 }

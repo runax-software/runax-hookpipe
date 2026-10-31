@@ -2,7 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
-using FluentAssertions;
+using Shouldly;
 
 namespace Runax.Hookpipe.Api.Tests;
 
@@ -37,7 +37,7 @@ public sealed class RoutingTests
 
         var response = await client.SendAsync(Post(id, """{"test":"routing"}""", ("X-Event-Type", "push")));
 
-        response.StatusCode.Should().Be(HttpStatusCode.Accepted);
+        response.StatusCode.ShouldBe(HttpStatusCode.Accepted);
         var metrics = await client.GetStringAsync("/metrics");
         TestApiHost.AssertMetric(metrics, Published, 1, ("webhook_id", id), ("broker_id", "push"));
         TestApiHost.AssertNoMetric(metrics, Published, ("webhook_id", id), ("broker_id", "other"));
@@ -57,7 +57,7 @@ public sealed class RoutingTests
 
         var response = await client.SendAsync(Post(id, """{"test":"no-match"}"""));
 
-        response.StatusCode.Should().Be(HttpStatusCode.Accepted);
+        response.StatusCode.ShouldBe(HttpStatusCode.Accepted);
         TestApiHost.AssertMetric(await client.GetStringAsync("/metrics"), Published, 1,
             ("webhook_id", id), ("broker_id", "other"));
     }
@@ -85,7 +85,7 @@ public sealed class RoutingTests
         var response = await client.SendAsync(
             Post(id, body, ("X-Event-Type", "pull_request"), ("X-Webhook-Source", "github")));
 
-        response.StatusCode.Should().Be(HttpStatusCode.Accepted);
+        response.StatusCode.ShouldBe(HttpStatusCode.Accepted);
         TestApiHost.AssertMetric(await client.GetStringAsync("/metrics"), Published, 1,
             ("webhook_id", id), ("broker_id", "push"));
     }
@@ -104,7 +104,7 @@ public sealed class RoutingTests
 
         var response = await client.SendAsync(Post(id, "plain text"));
 
-        response.StatusCode.Should().Be(HttpStatusCode.Accepted);
+        response.StatusCode.ShouldBe(HttpStatusCode.Accepted);
         TestApiHost.AssertMetric(await client.GetStringAsync("/metrics"), Published, 1,
             ("webhook_id", id), ("broker_id", "other"));
     }
@@ -124,7 +124,7 @@ public sealed class RoutingTests
 
         var response = await client.PostAsync("/webhooks/ingest/github", new StringContent("{}"));
 
-        response.StatusCode.Should().Be(HttpStatusCode.Accepted);
+        response.StatusCode.ShouldBe(HttpStatusCode.Accepted);
         TestApiHost.AssertMetric(await client.GetStringAsync("/metrics"), Published, 1,
             ("webhook_id", id), ("broker_id", "push"));
     }
@@ -143,7 +143,7 @@ public sealed class RoutingTests
 
         var response = await client.SendAsync(Post(id, "{}", ("X-Event-Type", "ping")));
 
-        response.StatusCode.Should().Be(HttpStatusCode.Accepted);
+        response.StatusCode.ShouldBe(HttpStatusCode.Accepted);
         TestApiHost.AssertNoMetric(await client.GetStringAsync("/metrics"), Published, ("webhook_id", id));
     }
 
@@ -156,7 +156,7 @@ public sealed class RoutingTests
 
         var response = await client.SendAsync(Post(id, "{}"));
 
-        response.StatusCode.Should().Be(HttpStatusCode.Accepted);
+        response.StatusCode.ShouldBe(HttpStatusCode.Accepted);
         var metrics = await client.GetStringAsync("/metrics");
         TestApiHost.AssertMetric(metrics, Published, 1, ("webhook_id", id), ("broker_id", "push"));
         TestApiHost.AssertMetric(metrics, Published, 1, ("webhook_id", id), ("broker_id", "pr"));
@@ -172,10 +172,10 @@ public sealed class RoutingTests
         var response = await client.SendAsync(Post(id, "{}"));
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
 
-        response.StatusCode.Should().Be(HttpStatusCode.Accepted);
-        body.GetProperty("status").GetString().Should().Be("accepted");
-        body.GetProperty("webhook_id").GetString().Should().Be(id);
-        Guid.TryParse(body.GetProperty("message_id").GetString(), out _).Should().BeTrue();
+        response.StatusCode.ShouldBe(HttpStatusCode.Accepted);
+        body.GetProperty("status").GetString().ShouldBe("accepted");
+        body.GetProperty("webhook_id").GetString().ShouldBe(id);
+        Guid.TryParse(body.GetProperty("message_id").GetString(), out _).ShouldBeTrue();
     }
 
     [Fact]
@@ -188,8 +188,8 @@ public sealed class RoutingTests
         var underPrefix = await client.PostAsync($"/webhooks/{id}", new StringContent("{}"));
         var withoutPrefix = await client.PostAsync($"/{id}", new StringContent("{}"));
 
-        underPrefix.StatusCode.Should().Be(HttpStatusCode.Accepted);
-        withoutPrefix.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        underPrefix.StatusCode.ShouldBe(HttpStatusCode.Accepted);
+        withoutPrefix.StatusCode.ShouldBe(HttpStatusCode.NotFound);
     }
 
     [Fact]
@@ -211,7 +211,7 @@ public sealed class RoutingTests
 
         var response = await client.PostAsync("/github/push", new StringContent("{}"));
 
-        response.StatusCode.Should().Be(HttpStatusCode.Accepted);
+        response.StatusCode.ShouldBe(HttpStatusCode.Accepted);
     }
 
     [Fact]
@@ -223,7 +223,7 @@ public sealed class RoutingTests
 
         var response = await client.GetAsync($"/webhooks/{id}");
 
-        response.StatusCode.Should().Be(HttpStatusCode.MethodNotAllowed);
+        response.StatusCode.ShouldBe(HttpStatusCode.MethodNotAllowed);
     }
 
     private static string NewId(string name) => $"routing-{name}-{Guid.NewGuid():N}";

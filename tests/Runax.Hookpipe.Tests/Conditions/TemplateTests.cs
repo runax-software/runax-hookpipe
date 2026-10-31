@@ -1,5 +1,5 @@
-using FluentAssertions;
 using Runax.Hookpipe.Conditions;
+using Shouldly;
 
 namespace Runax.Hookpipe.Tests.Conditions;
 
@@ -14,12 +14,12 @@ public sealed class TemplateTests
     [InlineData("{$.customer.id}", TemplateSource.JsonPath, "$.customer.id")]
     public void Parse_Placeholder_ReadsItsSource(string text, TemplateSource source, string name)
     {
-        var placeholder = Template.Parse(text).Placeholders.Should().ContainSingle().Subject;
+        var placeholder = Template.Parse(text).Placeholders.ShouldHaveSingleItem();
 
-        placeholder.Source.Should().Be(source);
-        placeholder.Name.Should().Be(name);
-        placeholder.Default.Should().BeNull();
-        placeholder.Text.Should().Be(text);
+        placeholder.Source.ShouldBe(source);
+        placeholder.Name.ShouldBe(name);
+        placeholder.Default.ShouldBeNull();
+        placeholder.Text.ShouldBe(text);
     }
 
     [Fact]
@@ -29,11 +29,11 @@ public sealed class TemplateTests
         var slice = Template.Parse("{$.items[0:-1]}").Placeholders.Single();
         var empty = Template.Parse("{header.X-Tenant:-}").Placeholders.Single();
 
-        withDefault.Name.Should().Be("$.type");
-        withDefault.Default.Should().Be("other");
-        slice.Name.Should().Be("$.items[0:-1]");
-        slice.Default.Should().BeNull();
-        empty.Default.Should().BeEmpty();
+        withDefault.Name.ShouldBe("$.type");
+        withDefault.Default.ShouldBe("other");
+        slice.Name.ShouldBe("$.items[0:-1]");
+        slice.Default.ShouldBeNull();
+        empty.Default.ShouldBeEmpty();
     }
 
     [Fact]
@@ -41,10 +41,10 @@ public sealed class TemplateTests
     {
         var template = Template.Parse("payments.{source}.{$.type}");
 
-        template.HasPlaceholders.Should().BeTrue();
-        template.Literals.Should().Equal("payments.", ".", "");
+        template.HasPlaceholders.ShouldBeTrue();
+        template.Literals.ShouldBe(["payments.", ".", ""]);
         template.Placeholders.Select(placeholder => placeholder.Source)
-            .Should().Equal(TemplateSource.PathParameter, TemplateSource.JsonPath);
+            .ShouldBe([TemplateSource.PathParameter, TemplateSource.JsonPath]);
     }
 
     [Theory]
@@ -57,8 +57,8 @@ public sealed class TemplateTests
     {
         var template = Template.Parse(text);
 
-        template.HasPlaceholders.Should().BeFalse();
-        template.Literals.Should().Equal(literal);
+        template.HasPlaceholders.ShouldBeFalse();
+        template.Literals.ShouldBe([literal]);
     }
 
     [Fact]
@@ -66,8 +66,8 @@ public sealed class TemplateTests
     {
         var template = Template.Parse("x.{$.items[?@.sku == '}']}.y");
 
-        template.Placeholders.Single().Name.Should().Be("$.items[?@.sku == '}']");
-        template.Literals.Should().Equal("x.", ".y");
+        template.Placeholders.Single().Name.ShouldBe("$.items[?@.sku == '}']");
+        template.Literals.ShouldBe(["x.", ".y"]);
     }
 
     [Theory]
@@ -79,7 +79,8 @@ public sealed class TemplateTests
     {
         var act = () => Template.Parse(text);
 
-        act.Should().Throw<ArgumentException>().WithMessage($"*{message}*");
+        var exception = Should.Throw<ArgumentException>(act);
+        exception.Message.ShouldContain($"{message}");
     }
 
     [Fact]
@@ -94,9 +95,9 @@ public sealed class TemplateTests
         var template = Template.Parse(
             "{webhook_id}/{source}/{header.X-Tenant}/{metadata.region}/{$.type}/{$.amount}/{$.live}");
 
-        template.TryRender(context, out var rendered, out var unresolved).Should().BeTrue();
-        rendered.Should().Be("hooks/github/acme/eu/invoice.paid/100.0/true");
-        unresolved.Should().BeNull();
+        template.TryRender(context, out var rendered, out var unresolved).ShouldBeTrue();
+        rendered.ShouldBe("hooks/github/acme/eu/invoice.paid/100.0/true");
+        unresolved.ShouldBeNull();
     }
 
     [Theory]
@@ -111,8 +112,8 @@ public sealed class TemplateTests
     {
         var template = Template.Parse(text);
 
-        template.TryRender(Context(body), out _, out var unresolved).Should().BeFalse();
-        unresolved!.Text.Should().Be(text);
+        template.TryRender(Context(body), out _, out var unresolved).ShouldBeFalse();
+        unresolved!.Text.ShouldBe(text);
     }
 
     [Fact]
@@ -120,8 +121,8 @@ public sealed class TemplateTests
     {
         var template = Template.Parse("payments.{$.type:-other}");
 
-        template.TryRender(Context("""{}"""), out var rendered, out _).Should().BeTrue();
-        rendered.Should().Be("payments.other");
+        template.TryRender(Context("""{}"""), out var rendered, out _).ShouldBeTrue();
+        rendered.ShouldBe("payments.other");
     }
 
     private static EvaluationContext Context(
