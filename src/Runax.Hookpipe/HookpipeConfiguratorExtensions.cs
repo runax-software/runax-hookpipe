@@ -26,11 +26,7 @@ public static class HookpipeConfiguratorExtensions
 
         var services = configurator.Services;
 
-        var loaded = services
-            .Select(d => d.ImplementationInstance)
-            .OfType<HookpipeOptions>()
-            .FirstOrDefault();
-        if (loaded is not null)
+        if (configurator.Options is { } loaded)
         {
             throw new InvalidOperationException(
                 $"Hookpipe already loads '{loaded.ConfigurationPath}'. Call LoadYaml only once.");

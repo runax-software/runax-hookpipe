@@ -97,8 +97,10 @@ internal sealed partial class HookpipeConfigurationBinder(ConfigurationErrors er
             pathsMap.ReportUnknownKeys();
         }
 
+        var maxBodySize = map.Get("max_body_size") is { } maxBodySizeNode ? _reader.ByteSize(maxBodySizeNode) : null;
+
         map.ReportUnknownKeys();
-        return new ServerConfiguration { Paths = paths };
+        return new ServerConfiguration { Paths = paths, MaxBodySize = maxBodySize };
     }
 
     private string NormalizePrefix(string prefix, ConfigurationNodePath path)
@@ -212,6 +214,7 @@ internal sealed partial class HookpipeConfigurationBinder(ConfigurationErrors er
         var methods = map.Get("methods") is { } methodsNode ? BindMethods(methodsNode) : ["POST"];
         var validate = map.Get("validate") is { } validateNode ? BindValidators(validateNode) : [];
         var rateLimit = map.Get("rate_limit") is { } rateLimitNode ? BindRateLimit(rateLimitNode) : null;
+        var maxBodySize = map.Get("max_body_size") is { } maxBodySizeNode ? _reader.ByteSize(maxBodySizeNode) : null;
         var message = map.Get("message") is { } messageNode ? BindMessage(messageNode) : new MessageConfiguration();
         var toNode = map.Get("to");
         var routeNode = map.Get("route");
@@ -231,6 +234,7 @@ internal sealed partial class HookpipeConfigurationBinder(ConfigurationErrors er
             Methods = methods,
             Validate = validate,
             RateLimit = rateLimit,
+            MaxBodySize = maxBodySize,
             Message = message,
             To = to,
             Route = route,
@@ -721,6 +725,7 @@ internal sealed partial class HookpipeConfigurationBinder(ConfigurationErrors er
                 Methods = webhook.Methods,
                 Validate = webhook.Validate,
                 RateLimit = webhook.RateLimit,
+                MaxBodySize = webhook.MaxBodySize,
                 Message = webhook.Message,
                 To = webhook.To is null ? null : ResolveTargets(webhook.To, configuration.Brokers, path.Child("to")),
                 Route = webhook.Route?.Select((rule, index) => new RouteRule

@@ -18,11 +18,14 @@ internal sealed class HookpipeRuntime
     {
         var startupLogger = loggerFactory.CreateLogger("Runax.Hookpipe.Startup");
 
-        ConfigurationProvider = new HookpipeConfigurationProvider(options.ConfigurationPath, loggerFactory.CreateLogger<HookpipeConfigurationProvider>());
+        ConfigurationProvider = new HookpipeConfigurationProvider(
+            options.ConfigurationPath, options.Configuration, loggerFactory.CreateLogger<HookpipeConfigurationProvider>());
 
         startupLogger.LogInformation(
             "[Hookpipe.Configuration] Loaded {WebhookCount} webhook(s) and {BrokerCount} broker(s) from '{Path}'",
             ConfigurationProvider.Current.Webhooks.Count, ConfigurationProvider.Current.Brokers.Count, options.ConfigurationPath);
+
+        WarnIfServerMaxBodySizeIgnored(options, startupLogger);
 
         RetryPipelines = new RetryPipelines(loggerFactory);
         Validators = ValidatorFactory.CreateAll(loggerFactory);
@@ -60,6 +63,20 @@ internal sealed class HookpipeRuntime
     /// Builds the message envelope for each request.
     /// </summary>
     public EnvelopeBuilder EnvelopeBuilder { get; }
+
+    /// <summary>
+    /// Warns that <c>server.max_body_size</c> is ignored when it's set and no host took it to apply
+    /// to its own server, which is library mode: the limit belongs to the app's Kestrel there.
+    /// </summary>
+    private static void WarnIfServerMaxBodySizeIgnored(HookpipeOptions options, ILogger logger)
+    {
+        if (options.ServerMaxBodySizeApplied || options.Configuration.Server.MaxBodySize is not { } limit) return;
+
+        logger.LogWarning(
+            "[Hookpipe.Configuration] Ignoring 'server.max_body_size' ({Limit} bytes): the request body limit " +
+            "belongs to the host's server. Use 'webhooks.<id>.max_body_size', which is applied per request",
+            limit);
+    }
 
     private static Dictionary<string, RateLimiter> CreateRateLimiters(HookpipeConfiguration configuration, ILogger logger)
     {

@@ -161,9 +161,11 @@ See [Message Envelope](docs/message-envelope.md) for full format.
 | Variable                     | Description                | Default                |
 | ---------------------------- | -------------------------- | ---------------------- |
 | `HOOKPIPE_CONFIG_PATH`       | Path to YAML config        | `config/hookpipe.yaml` |
-| `HOOKPIPE_MAX_BODY_SIZE_MB`  | Max request body size (MB) | `~28.6` (Kestrel default) |
 | `SEQ_URL`                    | Seq server URL             | — (disabled)           |
 | `LOKI_URL`                   | Grafana Loki URL           | — (disabled)           |
+
+The request body limit is a config key, not an env var: `server.max_body_size` for the whole
+process, and `max_body_size` on a webhook for just that route.
 
 Broker connection strings and secrets are whatever variables your config references with
 `${…}`. See [Configuration](docs/configuration.md) for all env vars and [Logging](docs/logging.md)
