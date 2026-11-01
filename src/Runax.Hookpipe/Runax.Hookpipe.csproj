@@ -1,11 +1,28 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
+  <!-- The library multi-targets so it installs on as many runtimes as possible; the service stays
+       current. TFMs are forward-compatible, so the net10.0 asset also serves .NET 11 apps, and a
+       net11.0 target is only worth adding once there are net11-only APIs to light up.
+
+       net8.0 is the floor, for three reasons:
+         - xunit.v3 ships only net472 and net8.0, so a net7.0 asset could never be tested;
+         - net7.0 is out of support, which NETSDK1138 turns into an error here;
+         - RouteGroupBuilder, the return type of MapHookpipe*, is ASP.NET Core 7+, so net6.0 would
+           need a public surface that differs per TFM. -->
+  <PropertyGroup>
+    <TargetFramework></TargetFramework>
+    <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
+  </PropertyGroup>
+
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
 
   <ItemGroup>
     <InternalsVisibleTo Include="Runax.Hookpipe.Tests" />
+    <!-- NSubstitute proxies run from Castle's own assembly, so Substitute.For<ILogger<T>> on an
+         internal T needs this as well as the line above. Most of the engine is internal. -->
+    <InternalsVisibleTo Include="DynamicProxyGenAssembly2" />
   </ItemGroup>
 
   <ItemGroup>

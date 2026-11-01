@@ -15,6 +15,18 @@ namespace Runax.Hookpipe;
 public static class EndpointRouteBuilderExtensions
 {
     /// <summary>
+    /// Maps everything Hookpipe serves. Today that is the webhooks, so this is the same as
+    /// <see cref="MapHookpipeWebhooks"/>; once streams ship it maps those too. Use
+    /// <see cref="MapHookpipeWebhooks"/> directly when webhooks and streams need different
+    /// conventions. Requires <see cref="ServiceCollectionExtensions.AddRunaxHookpipe"/>.
+    /// </summary>
+    /// <param name="endpoints">The endpoint route builder, usually the <c>WebApplication</c>.</param>
+    /// <returns>The webhook route group.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when Hookpipe isn't registered.</exception>
+    public static RouteGroupBuilder MapHookpipe(this IEndpointRouteBuilder endpoints) =>
+        endpoints.MapHookpipeWebhooks();
+
+    /// <summary>
     /// Maps one route per configured webhook, each at <c>{server.paths.webhooks}/{path}</c>
     /// (<c>/webhooks/{id}</c> by default). Requires
     /// <see cref="ServiceCollectionExtensions.AddRunaxHookpipe"/>.
@@ -26,7 +38,7 @@ public static class EndpointRouteBuilderExtensions
     /// <param name="endpoints">The endpoint route builder, usually the <c>WebApplication</c>.</param>
     /// <returns>A route group holding every webhook route, for adding conventions such as authorization.</returns>
     /// <exception cref="InvalidOperationException">Thrown when Hookpipe isn't registered.</exception>
-    public static RouteGroupBuilder MapHookpipe(this IEndpointRouteBuilder endpoints)
+    public static RouteGroupBuilder MapHookpipeWebhooks(this IEndpointRouteBuilder endpoints)
     {
         var runtime = endpoints.ServiceProvider.GetRequiredService<HookpipeRuntime>();
         var loggerFactory = endpoints.ServiceProvider.GetRequiredService<ILoggerFactory>();

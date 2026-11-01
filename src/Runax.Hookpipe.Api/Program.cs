@@ -23,17 +23,14 @@ builder.Host.UseSerilog((context, configuration) =>
 
 var configurationPath = Environment.GetEnvironmentVariable("HOOKPIPE_CONFIG_PATH") ?? "config/hookpipe.yaml";
 
-// The service owns the process, so it applies server.max_body_size to Kestrel. Taking it loads the
+// The service owns the process, so it applies server.max_body_size to Kestrel. Claiming it loads the
 // config here, and Hookpipe then runs on that same result instead of reading the file again.
-long? maxBodySize = null;
 builder.Services.AddRunaxHookpipe(hookpipe =>
 {
     hookpipe.LoadYaml(configurationPath);
-    maxBodySize = hookpipe.TakeServerMaxBodySize();
+    hookpipe.UseServerMaxBodySize(limit =>
+        builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = limit));
 });
-
-if (maxBodySize is { } limit)
-    builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = limit);
 
 builder.Services.AddHostedService<HookpipeMetricsExporter>();
 

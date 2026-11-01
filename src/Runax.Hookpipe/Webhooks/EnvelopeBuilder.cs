@@ -11,7 +11,7 @@ namespace Runax.Hookpipe.Webhooks;
 /// based on the matched webhook configuration.
 /// Parses JSON bodies when possible, falls back to raw string.
 /// </summary>
-public sealed class EnvelopeBuilder(ILogger<EnvelopeBuilder> logger)
+internal sealed class EnvelopeBuilder(ILogger<EnvelopeBuilder> logger)
 {
     /// <summary>
     /// Creates a message envelope from the HTTP context and webhook configuration.

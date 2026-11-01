@@ -108,9 +108,9 @@ public sealed class WebhookBodySizeTests : IDisposable
     }
 
     [Fact]
-    public async Task ServerMaxBodySize_TakenByTheHost_IsNotWarnedAbout()
+    public async Task ServerMaxBodySize_AppliedByTheHost_IsNotWarnedAbout()
     {
-        long? taken = null;
+        long? applied = null;
         await using var app = await StartAsync($"""
             version: 2
             server:
@@ -121,11 +121,31 @@ public sealed class WebhookBodySizeTests : IDisposable
             webhooks:
               github:
                 to: console
-            """, hookpipe => taken = hookpipe.TakeServerMaxBodySize());
+            """, hookpipe => hookpipe.UseServerMaxBodySize(limit => applied = limit));
 
         _ = await Post(app, Body(200));
 
-        taken.ShouldBe(64);
+        applied.ShouldBe(64);
+        _logs.Entries.ShouldNotContain(entry => entry.Message.Contains("Ignoring 'server.max_body_size'"));
+    }
+
+    [Fact]
+    public async Task ServerMaxBodySize_NotSetButClaimedByTheHost_DoesNotInvokeTheCallback()
+    {
+        var invoked = false;
+        await using var app = await StartAsync($"""
+            version: 2
+            brokers:
+              console:
+                type: stdout
+            webhooks:
+              github:
+                to: console
+            """, hookpipe => hookpipe.UseServerMaxBodySize(_ => invoked = true));
+
+        _ = await Post(app, Body(200));
+
+        invoked.ShouldBeFalse();
         _logs.Entries.ShouldNotContain(entry => entry.Message.Contains("Ignoring 'server.max_body_size'"));
     }
 
