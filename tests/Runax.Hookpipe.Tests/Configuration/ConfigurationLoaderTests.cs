@@ -178,7 +178,10 @@ public sealed class ConfigurationLoaderTests
                 to: console
             """);
 
-        configuration.Brokers.ShouldContainKey("console");
+        // ContainsKey rather than ShouldContainKey: Shouldly's IReadOnlyDictionary overload isn't in
+        // its net8.0 asset. This keeps the dictionary's own case-insensitive comparer, which is the
+        // point of the test — the YAML declares "Console" and this looks up "console".
+        configuration.Brokers.ContainsKey("console").ShouldBeTrue();
         configuration.Webhooks["PING"].To.ShouldBe([new Target("Console", null)]);
     }
 

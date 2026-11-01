@@ -134,7 +134,11 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: '10.0.x'
+          # The library multi-targets, so building it needs every runtime it targets.
+          dotnet-version: |
+            8.0.x
+            9.0.x
+            10.0.x
 
       - name: Start Azure emulators and build
         shell: bash

@@ -3,9 +3,14 @@ description: Checkout, setup .NET SDK, restore, and build the solution
 
 inputs:
   dotnet-version:
-    description: .NET SDK version
+    description: >
+      .NET SDK versions, one per line. The library multi-targets, so the older runtimes have to be
+      installed as well or its net8.0 and net9.0 test assemblies can't be executed.
     required: false
-    default: '10.0.x'
+    default: |
+      8.0.x
+      9.0.x
+      10.0.x
   warnings-as-errors:
     description: Treat warnings as errors during build
     required: false
