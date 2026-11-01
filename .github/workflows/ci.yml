@@ -121,7 +121,12 @@ jobs:
           GOOGLE_CLOUD_PROJECT: test-project
         # Integration tests all live in the library project. Running the whole solution would fail
         # with exit code 8 ("zero tests ran") on Runax.Hookpipe.Api.Tests, which has none.
-        run: dotnet test --project tests/Runax.Hookpipe.Tests/Runax.Hookpipe.Tests.csproj --no-build --verbosity normal -- --filter-trait "Category=Integration" --filter-not-class "*ServiceBusBrokerIntegrationTests" --filter-not-class "*EventHubsBrokerIntegrationTests"
+        #
+        # Pinned to one framework. These tests talk to shared containers, so fanning them out over
+        # every target framework makes concurrent runs compete for the same queues and topics, and
+        # broker wire behavior doesn't vary by framework anyway. The unit tests still run on all of
+        # them, which is where a framework difference would actually show.
+        run: dotnet test --project tests/Runax.Hookpipe.Tests/Runax.Hookpipe.Tests.csproj -f net10.0 --no-build --verbosity normal -- --filter-trait "Category=Integration" --filter-not-class "*ServiceBusBrokerIntegrationTests" --filter-not-class "*EventHubsBrokerIntegrationTests"
 
   azure-integration-tests:
     runs-on: ubuntu-latest
@@ -158,7 +163,9 @@ jobs:
           wait "$build_pid"
 
       - name: Service Bus and Event Hub integration tests
-        run: dotnet test --project tests/Runax.Hookpipe.Tests/Runax.Hookpipe.Tests.csproj --no-build --verbosity normal -- --filter-class "*ServiceBusBrokerIntegrationTests" --filter-class "*EventHubsBrokerIntegrationTests"
+        # Pinned to one framework, as in the job above: the emulator has one fixed queue, so three
+        # concurrent runs consume each other's messages and every "received" assertion fails.
+        run: dotnet test --project tests/Runax.Hookpipe.Tests/Runax.Hookpipe.Tests.csproj -f net10.0 --no-build --verbosity normal -- --filter-class "*ServiceBusBrokerIntegrationTests" --filter-class "*EventHubsBrokerIntegrationTests"
 
       - name: Azure emulator logs
         if: failure()
