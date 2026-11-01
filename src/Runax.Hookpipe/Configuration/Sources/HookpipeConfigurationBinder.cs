@@ -499,7 +499,7 @@ internal sealed partial class HookpipeConfigurationBinder(ConfigurationErrors er
                 return null;
             }
 
-            return CheckTopic(new Target(broker, topic), map.PathOf("topic"));
+            return ConfigurationChecker.CheckTopic(new Target(broker, topic), map.PathOf("topic"), errors);
         }
 
         if (_reader.String(node) is not { } text) return null;
@@ -519,61 +519,7 @@ internal sealed partial class HookpipeConfigurationBinder(ConfigurationErrors er
             return null;
         }
 
-        return CheckTopic(target, node.Path);
-    }
-
-    private Target? CheckTopic(Target target, ConfigurationNodePath path)
-    {
-        if (target.Topic is null) return target;
-
-        if (target.Topic.Length == 0)
-        {
-            errors.Add(path, $"target '{target.Broker}:' has an empty topic");
-            return null;
-        }
-
-        if (!target.Topic.Contains('{') && !target.Topic.Contains('}')) return target;
-
-        Template template;
-        try
-        {
-            template = Template.Parse(target.Topic);
-        }
-        catch (ArgumentException ex)
-        {
-            errors.Add(path, $"topic '{target.Topic}': {ex.Message}");
-            return null;
-        }
-
-        if (!template.HasPlaceholders)
-        {
-            errors.Add(path, $"topic '{target.Topic}' can't contain '{{' or '}}'");
-            return null;
-        }
-
-        var valid = true;
-        foreach (var placeholder in template.Placeholders.Where(placeholder => placeholder.Source == TemplateSource.Topic))
-        {
-            errors.Add(path, $"topic '{target.Topic}': placeholder '{placeholder.Text}' can't be used in a topic");
-            valid = false;
-        }
-
-        foreach (var literal in template.Literals.Where(literal => literal.Length > 0 && !Target.IsSafeTopic(literal)))
-        {
-            errors.Add(path, $"topic '{target.Topic}': '{literal}' can't be part of a templated topic; " +
-                             "rendered topics may only use letters, digits, '.', '_', and '-'");
-            valid = false;
-        }
-
-        foreach (var placeholder in template.Placeholders.Where(placeholder =>
-                     placeholder.Default is { Length: > 0 } fallback && !Target.IsSafeTopic(fallback)))
-        {
-            errors.Add(path, $"topic '{target.Topic}': the default in '{placeholder.Text}' may only use " +
-                             "letters, digits, '.', '_', and '-'");
-            valid = false;
-        }
-
-        return valid ? target with { TopicTemplate = template } : null;
+        return ConfigurationChecker.CheckTopic(target, node.Path, errors);
     }
 
     private Condition? BindCondition(ConfigurationNode node, int depth)

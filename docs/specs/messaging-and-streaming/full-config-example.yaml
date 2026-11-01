@@ -1,0 +1,308 @@
+# Runax.Hookpipe — config format v2, every key in one file.
+#
+# This is the FINAL shape, after all phases ship. Keys are annotated with their
+# defaults and, where a key isn't implemented yet, the PR that brings it
+# (see pull-requests.md). Today only the Phase 2 keys load.
+#
+# Interpolation (resolved once, at load):
+#   ${VAR}                      environment variable; missing is a load error
+#   ${VAR:-default}             default when unset or empty
+#   ${file:/run/secrets/name}   read a file, trailing newline trimmed
+#   $${                         a literal "${"
+# Interpolated values are treated as secrets: never logged, never echoed in errors.
+#
+# Templates (resolved per message) use single braces: {source}, {$.customer.id}.
+# Durations: 500ms, 5s, 2m, 1h.   Sizes: 512KB, 10MB.
+# Key names match ignoring case and underscores, so appsettings.json can use PascalCase.
+# Unknown keys are load errors, reported with their path.
+
+version: 2                                  # required; a v1 file is refused at startup
+
+# ─────────────────────────────────────────────────────────────────────────────
+# server — process-wide settings
+# ─────────────────────────────────────────────────────────────────────────────
+server:
+  instance_id: ${HOSTNAME:-hookpipe-local}  # default ${HOSTNAME}; identifies this replica
+                                            #   for broadcast subscriptions         [PR 12]
+  shutdown_timeout: 30s                     # default 30s; drain publish queues     [PR 5]
+  max_body_size: 25MB                       # default = Kestrel's own default.
+                                            #   SERVICE ONLY — in library mode it is
+                                            #   ignored with a warning              [PR 4]
+  paths:
+    webhooks: /webhooks                     # default /webhooks; may be "/" to keep v1 URLs
+    streams: /streams                       # default /streams
+    # Full routes must be unique and may not shadow /health, /health/*, or /metrics.
+
+# ─────────────────────────────────────────────────────────────────────────────
+# brokers — the messaging systems Hookpipe connects to.
+# Each broker with a `type` becomes one runax-messaging bus named hookpipe:<id>.
+# Its mode is derived from use: PublishOnly, ConsumeOnly, or PublishAndConsume.
+# ─────────────────────────────────────────────────────────────────────────────
+brokers:
+
+  # ── RabbitMQ: every publish key, spelled out ──
+  rabbit:
+    type: rabbitmq
+    settings:                               # bound straight onto RabbitMqConfig;
+      uri: ${RABBITMQ_URL}                  #   snake_case → PascalCase properties.
+      exchange_name: webhooks               #   DataAnnotations validation runs at startup.
+    publish:
+      workers: 1                            # default 1; one queue per worker       [PR 6]
+      order_by: "{topic}"                   # default {topic}; `none` = least-loaded,
+                                            #   no ordering                         [PR 6]
+      queue:
+        capacity: 1000                      # default 1000, per worker              [PR 5]
+        when_full: wait                     # wait | reject          (default wait) [PR 5]
+        enqueue_timeout: 2s                 # default 2s, then 503                  [PR 5]
+      batch:
+        max_size: 50                        # default 1 (no batching)               [PR 7]
+        max_delay: 5ms                      # default 0ms                           [PR 7]
+      retry:
+        max_retries: 3                      # default 3 when a retry block exists;
+                                            #   without the block, no retry (as v1)
+        delay: 2s                           # default 2s
+        backoff: exponential                # constant | linear | exponential
+        factor: 2                           # default 2 — honored in v2; v1 ignored it
+        max_delay: 30s                      # default 30s, cap on any single delay
+        jitter: true                        # default true
+    subscribe:
+      mode: broadcast                       # broadcast | shared (default broadcast);
+                                            #   only matters if a stream reads from it
+
+  # ── Kafka: parallel workers, ordering held per key ──
+  kafka:
+    type: kafka
+    settings:
+      bootstrap_servers: ${KAFKA_BROKERS}
+    publish:
+      workers: 8                            # same order_by key always hits the same worker
+      order_by: "{$.tenant_id:-anonymous}"  # a template; :- supplies a default
+      batch: { max_size: 100, max_delay: 5ms }
+    subscribe:
+      mode: broadcast                       # every replica must see every message
+
+  # ── The remaining runax-messaging transports ──
+  queue:
+    type: sqs
+    settings:
+      region: ${AWS_REGION}
+      service_url: ${AWS_ENDPOINT_URL:-}    # for LocalStack; omit in production
+      topic_queue_url_map:                  # a target's topic must be a key here
+        orders: ${ORDERS_QUEUE_URL}
+        audit: ${AUDIT_QUEUE_URL}
+
+  fanout:
+    type: sns
+    settings:
+      region: ${AWS_REGION}
+      topic_arn_map:
+        alerts: ${ALERTS_TOPIC_ARN}
+
+  cache:
+    type: redis                             # Redis Streams; topic = the stream key
+    settings:
+      configuration: ${REDIS_CONNECTION}
+
+  pubsub:
+    type: google-pubsub                     # topic = the Pub/Sub topic ID
+    settings:
+      project_id: ${GCP_PROJECT_ID}
+
+  servicebus:
+    type: azure-servicebus                  # topic = queue or topic name
+    settings:
+      connection_string: ${SERVICEBUS_CONNECTION_STRING}
+
+  eventhubs:
+    type: azure-eventhubs                   # topic = event hub name
+    settings:
+      connection_string: ${EVENTHUBS_CONNECTION_STRING}
+
+  # ── Hookpipe-local transports: publish-only, never valid in a stream's `from` ──
+  console:
+    type: stdout                            # no topic
+
+  relay:
+    type: http                              # a target's topic is appended as a URL path:
+    settings:                               #   relay:orders POSTs to <url>/orders
+      url: ${RELAY_URL}
+      timeout: 10s
+
+  bridge:
+    type: eventbridge                       # topic becomes the event's DetailType
+    settings:                               #   (default "webhook")
+      event_bus_name: ${EVENT_BUS_NAME}
+      source: hookpipe
+      region: ${AWS_REGION}
+
+  # ── Library mode only: reuse a bus the host app already registered ──
+  app_bus:
+    bus: orders-bus                         # instead of `type` + `settings`. Hookpipe
+                                            #   neither creates nor reconfigures it; the
+                                            #   loader checks its mode fits the use.
+
+# ─────────────────────────────────────────────────────────────────────────────
+# webhooks — receive HTTP, publish TO brokers. Served under server.paths.webhooks.
+# Use exactly one of `to` and `route`.
+# ─────────────────────────────────────────────────────────────────────────────
+webhooks:
+
+  # ── Several validators, header routing, an explicit drop ──
+  github:                                   # POST /webhooks/github (path defaults to the ID)
+    methods: [POST]                         # default [POST]
+    validate:                               # ALL must pass
+      - type: hmac-sha256
+        header: X-Hub-Signature-256
+        secret: ${GITHUB_WEBHOOK_SECRET}
+      - type: ip-allowlist
+        allow: [192.30.252.0/22, 185.199.108.0/22, 140.82.112.0/20]
+    max_body_size: 10MB                     # default = the host's limit; 413 above it.
+                                            #   Applied per request, so it works in
+                                            #   library mode too                    [PR 4]
+    message:
+      body: true                            # default true
+      headers: [X-GitHub-Event, X-GitHub-Delivery]   # true | false | [names]  (default false)
+    delivery:
+      ack: delivered                        # delivered | enqueued   (default delivered) [PR 5]
+      accept_when: any                      # any | all targets succeed  (default any)  [PR 5]
+      timeout: 10s                          # default 30s, caps the `delivered` wait    [PR 5]
+    route:                                  # ordered; first match wins
+      - when: { header: X-GitHub-Event, eq: ping }
+        to: []                              # acknowledge and publish nothing
+                                            #   (`to: none` means the same)
+      - when: { header: X-GitHub-Event, eq: push }
+        to: rabbit:github.push              # broker:topic — splits at the first ":"
+      - to: rabbit:github.other             # the LAST rule must have no `when`
+
+  # ── Body routing, nested conditions, per-target settings ──
+  stripe:
+    validate:
+      - type: stripe-v1
+        header: Stripe-Signature
+        secret: ${file:/run/secrets/stripe}
+    route:
+      - when: { jsonpath: "$.type", in: [invoice.paid, checkout.session.completed] }
+        to:                                 # the object form, for per-target settings
+          broker: kafka
+          topic: payments
+          order_by: "{$.data.object.customer:-unknown}"
+          partition_key: "{$.data.object.customer}"   # needs runax-messaging P2    [PR 9]
+      - when:                               # a list: ALL must match
+          - { jsonpath: "$.type", starts_with: "charge." }
+          - { jsonpath: "$.data.object.amount", gte: 100000 }
+          - { jsonpath: "$.livemode", eq: true }
+        to: ["kafka:payments", "rabbit:alerts.large-charge"]
+      - when:
+          any:                              # all | any | not, nesting up to 8 deep
+            - { jsonpath: "$.data.object.amount", gte: 1000000 }
+            - { header: X-Priority, eq: high }
+            - not: { jsonpath: "$.status", in: [paid, refunded] }
+        to: fanout:alerts
+      - when: { jsonpath: "$.items[?@.qty > 10 && @.sku == 'A1']", exists: true }
+        to: queue:orders                    # topic must be a key in topic_queue_url_map
+      - to: []
+
+  # ── Path parameters, metadata, templated topics, rate limiting ──
+  ingest:
+    path: ingest/{source}                   # POST /webhooks/ingest/{source}
+    methods: [POST, PUT]
+    validate:
+      - type: bearer
+        token: ${INGEST_TOKEN}
+    rate_limit: { requests: 100, window: 60s }
+    message:
+      metadata:                             # static values or templates
+        source: "{source}"                  # a path parameter
+        webhook: "{webhook_id}"             # reserved: the webhook's ID
+        delivery: "{header.X-Request-Id}"   # a request header
+        customer: "{$.customer.id:-anonymous}"   # one scalar from the body, with a default
+        literal: "{{not a template}}"       # {{ }} are literal braces
+    delivery: { ack: enqueued }             # return as soon as it's queued
+    # Inside a flow list, ANY target containing ":" must be quoted — YAML treats the
+    # colon as an indicator there. In a block list it may be written bare.
+    to: ["kafka:ingest.{source}", "relay:ingest", console]
+    # A rendered topic must stay within [A-Za-z0-9._-] or the message fails for that
+    # target (template_invalid). Prefer route rules over body-derived topics unless the
+    # value is signed and comes from a small known set.
+
+  # ── Minimal: one target, everything else defaulted ──
+  healthcheck:
+    path: /ping                             # a leading "/" means the same thing
+    to: console
+
+# ─────────────────────────────────────────────────────────────────────────────
+# streams — read FROM brokers, push to connected clients. Served under
+# server.paths.streams. SSE ships first; the protocol seam is pluggable.
+# `from` topics must be exact, and publish-only brokers are rejected here.
+# ─────────────────────────────────────────────────────────────────────────────
+streams:
+
+  # ── Every stream key, spelled out ──
+  github-live:                              # GET /streams/github-live
+    from:                                   # several targets merge into one stream
+      - rabbit:github.push                  #   (a block list needs no quoting)
+      - rabbit:github.other
+    auth:                                   # token-style only; body-signature types
+      - type: bearer                        #   are rejected for streams
+        token: ${STREAM_TOKEN}
+        query_parameter: access_token       # lets a browser EventSource authenticate
+    cors:
+      allowed_origins: ["https://dash.example.com"]   # quoted: the "//" follows a colon
+      allow_credentials: false
+    event:
+      name: "{topic}"                       # default "{topic}"
+      data: body                            # default body
+    buffer:
+      inbox: 1024                           # default 1024, consumer → worker
+      replay: 500                           # default 256; 0 turns Last-Event-ID resume off
+      per_client: 256                       # default 256, outbox per subscriber
+      slow_client: disconnect               # disconnect | drop_oldest (default disconnect)
+    limits:
+      max_clients: 5000                     # default 10000; 503 above it
+      max_connection_age: 1h                # default none; forces a reconnect
+    protocols:
+      sse:
+        heartbeat: 15s                      # default 15s
+        retry: 3s                           # default 3s
+    # Phase 6: serve this replica's own publishes from memory and drop the broker's
+    # later copy, then optionally merge events about the same thing.        [PR 15]
+    local_delivery: after_publish           # after_publish | on_accept | off
+                                            #   (default after_publish)
+    dedupe:
+      key: "{header.hookpipe.message.id}"   # default; a foreign producer's own ID
+                                            #   works too, e.g. "{$.event_id}"
+      window: 2m                            # default 2m; size it above the broker's
+                                            #   worst normal delivery delay
+      max_entries: 100000                   # default 100000, oldest evicted first
+    debounce:                               # merges DIFFERENT messages about one thing
+      key: "{$.order_id}"                   # default none — setting it turns debounce on
+      window: 250ms                         # default 250ms
+      emit: latest                          # latest (trailing) | first (leading)
+      max_keys: 10000                       # default 10000; beyond it events pass through
+
+  # ── A filter that closes over a path parameter ──
+  ingest-by-source:
+    path: ingest/{source}                   # GET /streams/ingest/{source}
+    from: ["kafka:ingest.billing", "kafka:ingest.crm"]
+    filter: { jsonpath: "$.metadata.source", eq: "{source}" }
+    # No `protocols` block means SSE with its defaults.
+
+  # ── Filtering inside Hookpipe's own envelope ──
+  paid-invoices:
+    path: payments/paid
+    from: kafka:payments
+    filter:
+      all:
+        - { jsonpath: "$.body.data.object.status", eq: paid }   # $.body = the envelope's payload
+        - { jsonpath: "$.body.livemode", eq: true }
+        - not: { header: x-replay, exists: true }
+
+  # ── Bidirectional, once WebSockets land (rejected while only SSE is enabled) ──
+  terminal:
+    from: rabbit:terminal.out
+    to: rabbit:terminal.in                  # client messages publish through the
+                                            #   broker's publish workers            [Phase 7]
+    auth:
+      - type: api-key
+        header: X-Api-Key
+        key: ${TERMINAL_API_KEY}

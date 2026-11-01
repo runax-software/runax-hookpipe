@@ -233,7 +233,7 @@ public sealed class WebhookBodySizeTests : IDisposable
     {
         await File.WriteAllTextAsync(_configurationPath, yaml);
 
-        var runtime = new HookpipeRuntime(new HookpipeOptions(_configurationPath, false), NullLoggerFactory.Instance);
+        var runtime = new HookpipeRuntime(HookpipeOptions.FromYaml(_configurationPath, reloadOnChange: false), NullLoggerFactory.Instance);
         await new WebhookHandler("github", NullLogger.Instance, runtime).HandleAsync(context);
     }
 

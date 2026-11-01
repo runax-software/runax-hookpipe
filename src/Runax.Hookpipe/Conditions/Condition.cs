@@ -17,6 +17,57 @@ public abstract class Condition
     }
 
     /// <summary>
+    /// Reads the JSON body through an RFC 9535 JSONPath, such as <c>$.data.object.status</c>. On a
+    /// webhook that's the request body. For Hookpipe's own envelopes the payload sits under
+    /// <c>$.body</c>.
+    /// </summary>
+    /// <param name="path">The JSONPath expression.</param>
+    /// <returns>A selector waiting for its operator.</returns>
+    /// <remarks>
+    /// The path is parsed when the operator is applied, so a malformed one throws from
+    /// <c>Eq</c>, <c>Gte</c>, and the rest rather than from here.
+    /// </remarks>
+    public static ConditionSelector JsonPath(string path) => new(ConditionSource.JsonPath, path);
+
+    /// <summary>
+    /// Reads a request header. The name is matched ignoring case.
+    /// </summary>
+    /// <param name="name">The header name.</param>
+    /// <returns>A selector waiting for its operator.</returns>
+    /// <exception cref="ArgumentException"><paramref name="name"/> is empty.</exception>
+    public static ConditionSelector Header(string name) => new(ConditionSource.Header, name);
+
+    /// <summary>
+    /// Reads a path parameter of the webhook's route, such as <c>source</c> in
+    /// <c>ingest/{source}</c>.
+    /// </summary>
+    /// <param name="name">The parameter name, without braces.</param>
+    /// <returns>A selector waiting for its operator.</returns>
+    /// <exception cref="ArgumentException"><paramref name="name"/> is empty.</exception>
+    public static ConditionSelector PathParameter(string name) => new(ConditionSource.Path, name);
+
+    /// <summary>
+    /// Matches when every one of <paramref name="conditions"/> matches.
+    /// </summary>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="conditions"/> is empty, or nesting would pass <see cref="MaxDepth"/>.
+    /// </exception>
+    public static AllCondition All(params Condition[] conditions) => new(conditions);
+
+    /// <summary>
+    /// Matches when any one of <paramref name="conditions"/> matches.
+    /// </summary>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="conditions"/> is empty, or nesting would pass <see cref="MaxDepth"/>.
+    /// </exception>
+    public static AnyCondition Any(params Condition[] conditions) => new(conditions);
+
+    /// <summary>
+    /// Matches when <paramref name="condition"/> doesn't.
+    /// </summary>
+    public static NotCondition Not(Condition condition) => new(condition);
+
+    /// <summary>
     /// How deeply the condition nests: 1 for a comparison.
     /// </summary>
     internal abstract int Depth { get; }

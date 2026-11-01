@@ -20,9 +20,10 @@ internal sealed class HookpipeHostedService(
     /// <inheritdoc />
     public async Task StartAsync(CancellationToken cancellationToken)
     {
-        if (options.ReloadOnChange)
+        // Only a file can be watched, so definitions built in code never take this path.
+        if (options is { ReloadOnChange: true, ConfigurationPath: { } configurationPath })
             _watcher = new ConfigurationFileWatcher(
-                options.ConfigurationPath, runtime.ConfigurationProvider, loggerFactory.CreateLogger<ConfigurationFileWatcher>());
+                configurationPath, runtime.ConfigurationProvider, loggerFactory.CreateLogger<ConfigurationFileWatcher>());
 
         var brokers = await BrokerFactory.CreateAllAsync(runtime.ConfigurationProvider.Current, loggerFactory);
         foreach (var (id, broker) in brokers)

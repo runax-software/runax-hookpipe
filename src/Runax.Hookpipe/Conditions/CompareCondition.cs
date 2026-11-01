@@ -295,7 +295,8 @@ public sealed class CompareCondition : Condition
 
         try
         {
-            return JsonPath.Parse(selector);
+            // Qualified: Condition.JsonPath(string) would otherwise shadow the type here.
+            return Json.Path.JsonPath.Parse(selector);
         }
         catch (Exception ex) when (ex is PathParseException or ArgumentException)
         {

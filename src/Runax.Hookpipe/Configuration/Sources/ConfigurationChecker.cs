@@ -186,6 +186,66 @@ internal sealed partial class ConfigurationChecker(ConfigurationErrors errors)
         return resolved;
     }
 
+    /// <summary>
+    /// Checks a target's topic and attaches its parsed template when it has placeholders. Shared by
+    /// every source: the binder calls it while binding, and code definitions call it from the
+    /// builders.
+    /// </summary>
+    /// <returns>The target, with its template, or null when the topic is rejected.</returns>
+    internal static Target? CheckTopic(Target target, ConfigurationNodePath path, ConfigurationErrors errors)
+    {
+        if (target.Topic is null) return target;
+
+        if (target.Topic.Length == 0)
+        {
+            errors.Add(path, $"target '{target.Broker}:' has an empty topic");
+            return null;
+        }
+
+        if (!target.Topic.Contains('{') && !target.Topic.Contains('}')) return target;
+
+        Template template;
+        try
+        {
+            template = Template.Parse(target.Topic);
+        }
+        catch (ArgumentException ex)
+        {
+            errors.Add(path, $"topic '{target.Topic}': {ex.Message}");
+            return null;
+        }
+
+        if (!template.HasPlaceholders)
+        {
+            errors.Add(path, $"topic '{target.Topic}' can't contain '{{' or '}}'");
+            return null;
+        }
+
+        var valid = true;
+        foreach (var placeholder in template.Placeholders.Where(placeholder => placeholder.Source == TemplateSource.Topic))
+        {
+            errors.Add(path, $"topic '{target.Topic}': placeholder '{placeholder.Text}' can't be used in a topic");
+            valid = false;
+        }
+
+        foreach (var literal in template.Literals.Where(literal => literal.Length > 0 && !Target.IsSafeTopic(literal)))
+        {
+            errors.Add(path, $"topic '{target.Topic}': '{literal}' can't be part of a templated topic; " +
+                             "rendered topics may only use letters, digits, '.', '_', and '-'");
+            valid = false;
+        }
+
+        foreach (var placeholder in template.Placeholders.Where(placeholder =>
+                     placeholder.Default is { Length: > 0 } fallback && !Target.IsSafeTopic(fallback)))
+        {
+            errors.Add(path, $"topic '{target.Topic}': the default in '{placeholder.Text}' may only use " +
+                             "letters, digits, '.', '_', and '-'");
+            valid = false;
+        }
+
+        return valid ? target with { TopicTemplate = template } : null;
+    }
+
     [GeneratedRegex(@"^\w+$")]
     private static partial Regex ParameterPattern();
 }

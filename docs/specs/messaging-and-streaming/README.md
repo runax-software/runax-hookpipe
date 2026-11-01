@@ -70,7 +70,9 @@
 | [messaging-integration.md](messaging-integration.md) | §6: wiring buses, Hookpipe-local transports, wire changes, health, telemetry |
 | [messaging-prerequisites.md](messaging-prerequisites.md) | §7: the runax-messaging changes P1–P8 |
 | [implementation-plan.md](implementation-plan.md) | §8–§10: code layout, failure modes, phases and tests |
+| [pull-requests.md](pull-requests.md) | The remaining phases, split into pull requests, in order |
 | [packaging.md](packaging.md) | §11: the rename to Runax.Hookpipe, the NuGet library and the self-hosted service, the Docker image, releases |
+| [library-api.md](library-api.md) | §11.4 expanded: the concrete public surface — registration, routing, definitions in code, extension points |
 | [open-questions.md](open-questions.md) | §12: open questions |
 | [breaking-changes.md](breaking-changes.md) | §13: every breaking change from v1, in one list for the release notes |
 
