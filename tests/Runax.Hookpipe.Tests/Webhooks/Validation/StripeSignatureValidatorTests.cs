@@ -1,13 +1,13 @@
 using System.Security.Cryptography;
 using System.Text;
 using Runax.Hookpipe.Configuration;
-using Runax.Hookpipe.Validation;
+using Runax.Hookpipe.Webhooks.Validation;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
 using Shouldly;
 
-namespace Runax.Hookpipe.Tests.Validation;
+namespace Runax.Hookpipe.Tests.Webhooks.Validation;
 
 public sealed class StripeSignatureValidatorTests
 {

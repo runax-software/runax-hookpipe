@@ -1,13 +1,13 @@
 using Runax.Hookpipe.Configuration;
 using Microsoft.AspNetCore.Http;
 
-namespace Runax.Hookpipe.Validation;
+namespace Runax.Hookpipe.Webhooks.Validation;
 
 /// <summary>
 /// Validates incoming webhook requests before they are processed.
 /// Each validation strategy (HMAC, bearer token, etc.) implements this interface.
 /// </summary>
-public interface IValidator
+public interface IWebhookValidator
 {
     /// <summary>
     /// Validator type identifier (e.g. "hmac-sha256", "bearer"). Used to match against configuration.

@@ -4,7 +4,7 @@ using Runax.Hookpipe.Configuration;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 
-namespace Runax.Hookpipe.Validation;
+namespace Runax.Hookpipe.Webhooks.Validation;
 
 /// <summary>
 /// Validates requests by computing an HMAC-SHA256 signature of the request body
@@ -13,7 +13,7 @@ namespace Runax.Hookpipe.Validation;
 /// Uses constant-time comparison to prevent timing attacks.
 /// Resets the request body position after reading so downstream handlers can still access it.
 /// </summary>
-public sealed class HmacSha256Validator(ILogger<HmacSha256Validator> logger) : IValidator
+public sealed class HmacSha256Validator(ILogger<HmacSha256Validator> logger) : IWebhookValidator
 {
     private static readonly Encoding Utf8 = Encoding.UTF8;
 

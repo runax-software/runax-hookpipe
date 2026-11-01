@@ -2,7 +2,7 @@ using System.Threading.RateLimiting;
 using Microsoft.Extensions.Logging;
 using Runax.Hookpipe.Configuration;
 using Runax.Hookpipe.Brokers;
-using Runax.Hookpipe.Validation;
+using Runax.Hookpipe.Webhooks.Validation;
 using Runax.Hookpipe.Webhooks;
 
 namespace Runax.Hookpipe.Hosting;
@@ -52,7 +52,7 @@ internal sealed class HookpipeRuntime
     /// <summary>
     /// Validators keyed by type.
     /// </summary>
-    public Dictionary<string, IValidator> Validators { get; }
+    public Dictionary<string, IWebhookValidator> Validators { get; }
 
     /// <summary>
     /// Rate limiters keyed by webhook ID, for webhooks with a rate limit.

@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Logging;
 
-namespace Runax.Hookpipe.Validation;
+namespace Runax.Hookpipe.Webhooks.Validation;
 
 /// <summary>
 /// Creates all available validators with logging support.
@@ -24,11 +24,11 @@ public static class ValidatorFactory
     /// </summary>
     /// <param name="loggerFactory">Logger factory for creating validator-specific loggers.</param>
     /// <returns>Dictionary of validators keyed by type (e.g. "bearer", "hmac-sha256").</returns>
-    public static Dictionary<string, IValidator> CreateAll(ILoggerFactory loggerFactory)
+    public static Dictionary<string, IWebhookValidator> CreateAll(ILoggerFactory loggerFactory)
     {
         var logger = loggerFactory.CreateLogger(typeof(ValidatorFactory));
 
-        var validators = new Dictionary<string, IValidator>
+        var validators = new Dictionary<string, IWebhookValidator>
         {
             [BearerTokenValidator.TypeName] =
                 new BearerTokenValidator(loggerFactory.CreateLogger<BearerTokenValidator>()),

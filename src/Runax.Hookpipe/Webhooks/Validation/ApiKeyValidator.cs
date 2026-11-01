@@ -4,7 +4,7 @@ using Microsoft.Extensions.Logging;
 using System.Security.Cryptography;
 using System.Text;
 
-namespace Runax.Hookpipe.Validation;
+namespace Runax.Hookpipe.Webhooks.Validation;
 
 /// <summary>
 /// Validates requests by comparing a custom header value against a secret
@@ -12,7 +12,7 @@ namespace Runax.Hookpipe.Validation;
 /// Unlike bearer token validation, this supports any header name (e.g. X-API-Key).
 /// Uses constant-time comparison to prevent timing attacks.
 /// </summary>
-public sealed class ApiKeyValidator(ILogger<ApiKeyValidator> logger) : IValidator
+public sealed class ApiKeyValidator(ILogger<ApiKeyValidator> logger) : IWebhookValidator
 {
     private static readonly Encoding Utf8 = Encoding.UTF8;
 
