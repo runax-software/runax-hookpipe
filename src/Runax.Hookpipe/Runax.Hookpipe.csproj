@@ -6,6 +6,9 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="Runax.Hookpipe.Tests" />
+    <!-- NSubstitute proxies run from Castle's own assembly, so Substitute.For<ILogger<T>> on an
+         internal T needs this as well as the line above. Most of the engine is internal. -->
+    <InternalsVisibleTo Include="DynamicProxyGenAssembly2" />
   </ItemGroup>
 
   <ItemGroup>
