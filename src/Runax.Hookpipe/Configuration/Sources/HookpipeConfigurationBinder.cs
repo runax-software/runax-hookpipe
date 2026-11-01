@@ -22,7 +22,6 @@ internal sealed partial class HookpipeConfigurationBinder(ConfigurationErrors er
 
     private static readonly string[] SourceKeys = ["jsonpath", "header", "path"];
     private static readonly string[] CombinatorKeys = ["all", "any", "not"];
-    private static readonly HashSet<string> ReservedPathParameters = new(["webhook_id", "topic"], StringComparer.OrdinalIgnoreCase);
 
     private static readonly Dictionary<string, ConditionOperator> OperatorKeys =
         Enum.GetValues<ConditionOperator>().ToDictionary(
@@ -64,7 +63,7 @@ internal sealed partial class HookpipeConfigurationBinder(ConfigurationErrors er
         map.ReportUnknownKeys();
 
         var configuration = new HookpipeConfiguration { Server = server, Brokers = brokers, Webhooks = webhooks };
-        return CheckReferences(configuration, map.PathOf("webhooks"));
+        return new ConfigurationChecker(errors).Check(configuration, map.PathOf("webhooks"));
     }
 
     private bool CheckVersion(MappingReader map)
@@ -694,159 +693,6 @@ internal sealed partial class HookpipeConfigurationBinder(ConfigurationErrors er
         return operands.All(operand => operand is not null) ? operands.Select(operand => operand!.Value).ToList() : null;
     }
 
-    private HookpipeConfiguration CheckReferences(HookpipeConfiguration configuration, ConfigurationNodePath webhooksPath)
-    {
-        var routes = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        var resolvedWebhooks = new Dictionary<string, WebhookConfiguration>(StringComparer.OrdinalIgnoreCase);
-
-        foreach (var (id, webhook) in configuration.Webhooks)
-        {
-            var path = webhooksPath.Child(id);
-            var parameters = CheckRoute(id, webhook, configuration.Server.Paths.Webhooks, path, routes);
-
-            foreach (var (rule, index) in (webhook.Route ?? []).Select((rule, index) => (rule, index)))
-            {
-                foreach (var parameter in (rule.When?.PathParameters ?? []).Distinct(StringComparer.OrdinalIgnoreCase))
-                    if (!parameters.Contains(parameter))
-                        errors.Add(path.Child("route").Item(index).Child("when"),
-                            $"path parameter '{parameter}' isn't in the webhook's path '{webhook.Path}'");
-
-                CheckTemplateReferences(rule.To, webhook, parameters, path.Child("route").Item(index).Child("to"));
-            }
-
-            CheckTemplateReferences(webhook.To ?? [], webhook, parameters, path.Child("to"));
-
-            foreach (var (key, template) in webhook.Message.MetadataTemplates)
-                CheckPlaceholders(template, webhook, parameters, path.Child("message").Child("metadata").Child(key));
-
-            resolvedWebhooks[id] = new WebhookConfiguration
-            {
-                Path = webhook.Path,
-                Methods = webhook.Methods,
-                Validate = webhook.Validate,
-                RateLimit = webhook.RateLimit,
-                MaxBodySize = webhook.MaxBodySize,
-                Message = webhook.Message,
-                To = webhook.To is null ? null : ResolveTargets(webhook.To, configuration.Brokers, path.Child("to")),
-                Route = webhook.Route?.Select((rule, index) => new RouteRule
-                {
-                    When = rule.When,
-                    To = ResolveTargets(rule.To, configuration.Brokers, path.Child("route").Item(index).Child("to")),
-                }).ToList(),
-            };
-        }
-
-        return new HookpipeConfiguration { Server = configuration.Server, Brokers = configuration.Brokers, Webhooks = resolvedWebhooks };
-    }
-
-    private void CheckTemplateReferences(
-        IReadOnlyList<Target> targets,
-        WebhookConfiguration webhook,
-        HashSet<string> parameters,
-        ConfigurationNodePath path)
-    {
-        foreach (var target in targets)
-            if (target.TopicTemplate is { } template)
-                CheckPlaceholders(template, webhook, parameters, path);
-    }
-
-    /// <summary>
-    /// Reports placeholders that name a path parameter the route doesn't have, or a metadata key the
-    /// webhook doesn't set.
-    /// </summary>
-    private void CheckPlaceholders(
-        Template template,
-        WebhookConfiguration webhook,
-        HashSet<string> parameters,
-        ConfigurationNodePath path)
-    {
-        foreach (var placeholder in template.Placeholders)
-        {
-            if (placeholder.Source == TemplateSource.PathParameter && !parameters.Contains(placeholder.Name))
-                errors.Add(path, $"placeholder '{placeholder.Text}': path parameter '{placeholder.Name}' isn't in " +
-                                 $"the webhook's path '{webhook.Path}'");
-            else if (placeholder.Source == TemplateSource.Metadata && !webhook.Message.Metadata.ContainsKey(placeholder.Name))
-                errors.Add(path, $"placeholder '{placeholder.Text}': metadata key '{placeholder.Name}' isn't in " +
-                                 "the webhook's message.metadata");
-        }
-    }
-
-    private HashSet<string> CheckRoute(
-        string id,
-        WebhookConfiguration webhook,
-        string prefix,
-        ConfigurationNodePath path,
-        Dictionary<string, string> routes)
-    {
-        var parameters = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var route = HookpipeRoutes.Combine(prefix, webhook.Path);
-        RoutePattern pattern;
-
-        try
-        {
-            pattern = RoutePatternFactory.Parse(route);
-        }
-        catch (RoutePatternException ex)
-        {
-            errors.Add(path.Child("path"), $"route '{route}' isn't valid: {ex.Message}");
-            return parameters;
-        }
-
-        foreach (var parameter in pattern.Parameters)
-        {
-            if (parameter.IsCatchAll || parameter.IsOptional || parameter.Default is not null ||
-                parameter.ParameterPolicies.Count > 0 || !ParameterPattern().IsMatch(parameter.Name))
-                errors.Add(path.Child("path"),
-                    $"path parameter '{parameter.Name}' must be a plain name such as {{source}}");
-            else if (ReservedPathParameters.Contains(parameter.Name))
-                errors.Add(path.Child("path"), $"path parameter '{parameter.Name}' uses a reserved name");
-
-            parameters.Add(parameter.Name);
-        }
-
-        if (HookpipeRoutes.IsReserved(route))
-            errors.Add(path.Child("path"), $"route '{route}' would shadow the service's /health or /metrics routes");
-
-        var key = HookpipeRoutes.Shape(pattern);
-        if (!routes.TryAdd(key, id))
-            errors.Add(path.Child("path"), $"route '{route}' is the same as webhook '{routes[key]}'s route");
-
-        return parameters;
-    }
-
-    private List<Target> ResolveTargets(
-        IReadOnlyList<Target> targets,
-        IReadOnlyDictionary<string, BrokerConfiguration> brokers,
-        ConfigurationNodePath path)
-    {
-        var resolved = new List<Target>();
-        foreach (var target in targets)
-        {
-            var brokerId = brokers.Keys.FirstOrDefault(id => string.Equals(id, target.Broker, StringComparison.OrdinalIgnoreCase));
-            if (brokerId is null)
-            {
-                errors.Add(path, $"target '{target}' names unknown broker '{target.Broker}'");
-                continue;
-            }
-
-            if (BrokerTypes.All.TryGetValue(brokers[brokerId].Type, out var type))
-            {
-                if (type.Topics == TopicUse.Required && target.Topic is null)
-                    errors.Add(path, $"target '{target}' needs a topic, such as '{target.Broker}:<topic>'");
-                else if (type.Topics == TopicUse.None && target.Topic is not null)
-                    errors.Add(path, $"target '{target}': '{type.Name}' brokers take no topic; write just '{target.Broker}'");
-            }
-
-            if (target is { Topic: not null, TopicTemplate: null } && brokers[brokerId].Settings is IKnownTopics known &&
-                !known.HasTopic(target.Topic))
-                errors.Add(path, $"target '{target}': topic '{target.Topic}' isn't in brokers.{brokerId}.settings.{known.TopicsKey}");
-
-            resolved.Add(target with { Broker = brokerId });
-        }
-
-        return resolved;
-    }
-
     private static string Show(ConfigurationNode node, string value) => IsSecret(node) ? "the interpolated value" : $"'{value}'";
 
     private static bool IsSecret(ConfigurationNode node) =>
@@ -859,6 +705,4 @@ internal sealed partial class HookpipeConfigurationBinder(ConfigurationErrors er
     [GeneratedRegex("^[A-Za-z]+$")]
     private static partial Regex MethodPattern();
 
-    [GeneratedRegex(@"^\w+$")]
-    private static partial Regex ParameterPattern();
 }
