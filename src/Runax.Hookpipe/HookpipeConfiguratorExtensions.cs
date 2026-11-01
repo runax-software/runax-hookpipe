@@ -29,10 +29,12 @@ public static class HookpipeConfiguratorExtensions
         if (configurator.Options is { } loaded)
         {
             throw new InvalidOperationException(
-                $"Hookpipe already loads '{loaded.ConfigurationPath}'. Call LoadYaml only once.");
+                loaded.ConfigurationPath is null
+                    ? "Hookpipe already has definitions built in code. Combining sources isn't supported yet."
+                    : $"Hookpipe already loads '{loaded.ConfigurationPath}'. Call LoadYaml only once.");
         }
 
-        services.AddSingleton(new HookpipeOptions(path, reloadOnChange));
+        services.AddSingleton(HookpipeOptions.FromYaml(path, reloadOnChange));
 
         return configurator;
     }

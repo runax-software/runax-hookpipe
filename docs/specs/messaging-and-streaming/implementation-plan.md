@@ -97,6 +97,8 @@ Each phase ships on its own.
 | 7 (later) | WebSockets, then inbound publish through stream `to` targets | — |
 | 8 (later) | WebRTC data channels, in a separate `Runax.Hookpipe.Streaming.WebRtc` package | — |
 
+The remaining phases are split into pull requests in [pull-requests.md](pull-requests.md).
+
 **Why this order:**
 
 - **Phase 1 goes first** so every later phase lands in its final project and namespace once.

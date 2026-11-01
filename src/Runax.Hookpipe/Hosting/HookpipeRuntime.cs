@@ -22,8 +22,8 @@ internal sealed class HookpipeRuntime
             options.ConfigurationPath, options.Configuration, loggerFactory.CreateLogger<HookpipeConfigurationProvider>());
 
         startupLogger.LogInformation(
-            "[Hookpipe.Configuration] Loaded {WebhookCount} webhook(s) and {BrokerCount} broker(s) from '{Path}'",
-            ConfigurationProvider.Current.Webhooks.Count, ConfigurationProvider.Current.Brokers.Count, options.ConfigurationPath);
+            "[Hookpipe.Configuration] Loaded {WebhookCount} webhook(s) and {BrokerCount} broker(s) from '{Source}'",
+            ConfigurationProvider.Current.Webhooks.Count, ConfigurationProvider.Current.Brokers.Count, options.Source);
 
         WarnIfServerMaxBodySizeIgnored(options, startupLogger);
 

@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Runax.Hookpipe.Configuration;
+using Runax.Hookpipe.Configuration.Sources;
 using Runax.Hookpipe.Hosting;
 
 namespace Runax.Hookpipe;
@@ -29,6 +30,80 @@ public sealed class HookpipeConfigurator
     /// </summary>
     internal HookpipeOptions? Options =>
         Services.Select(descriptor => descriptor.ImplementationInstance).OfType<HookpipeOptions>().FirstOrDefault();
+
+    /// <summary>
+    /// Definitions built in code, if any.
+    /// </summary>
+    internal CodeSource? Code { get; private set; }
+
+    /// <summary>
+    /// The URL prefixes Hookpipe's routes are served under: the code form of <c>server.paths</c>.
+    /// </summary>
+    public HookpipePathsBuilder Paths => Definitions().Paths;
+
+    /// <summary>
+    /// Defines a broker in code, the code form of a <c>brokers.&lt;id&gt;</c> entry.
+    /// </summary>
+    /// <param name="id">
+    /// The broker ID that targets name. Compared ignoring case, so the same ID twice is an error
+    /// rather than a replacement.
+    /// </param>
+    /// <param name="broker">Builds the broker.</param>
+    /// <returns>The same configurator, to allow chaining.</returns>
+    /// <exception cref="ArgumentException"><paramref name="id"/> is null or whitespace.</exception>
+    /// <exception cref="InvalidOperationException">The broker has no type.</exception>
+    public HookpipeConfigurator AddBroker(string id, Action<BrokerBuilder> broker)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(id);
+        ArgumentNullException.ThrowIfNull(broker);
+
+        var builder = new BrokerBuilder();
+        broker(builder);
+        Definitions().AddBroker(id, builder.Build(id));
+
+        return this;
+    }
+
+    /// <summary>
+    /// Defines a webhook in code, the code form of a <c>webhooks.&lt;id&gt;</c> entry. It's served at
+    /// <c>{Paths.Webhooks}/{path}</c>, and the path defaults to the ID.
+    /// </summary>
+    /// <param name="id">
+    /// The webhook ID, which the envelope's <c>webhookId</c> carries. Compared ignoring case, so the
+    /// same ID twice is an error rather than a replacement.
+    /// </param>
+    /// <param name="webhook">Builds the webhook.</param>
+    /// <returns>The same configurator, to allow chaining.</returns>
+    /// <exception cref="ArgumentException"><paramref name="id"/> is null or whitespace.</exception>
+    /// <exception cref="InvalidOperationException">The webhook has no targets.</exception>
+    public HookpipeConfigurator AddWebhook(string id, Action<WebhookBuilder> webhook)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(id);
+        ArgumentNullException.ThrowIfNull(webhook);
+
+        var builder = new WebhookBuilder(id);
+        webhook(builder);
+        Definitions().AddWebhook(id, builder.Build());
+
+        return this;
+    }
+
+    private CodeSource Definitions()
+    {
+        if (Code is not null) return Code;
+
+        if (Options is { } loaded)
+        {
+            throw new InvalidOperationException(
+                $"Hookpipe already loads its definitions from '{loaded.Source}'. Defining them in code as well " +
+                "needs the sources to be combined, which isn't supported yet.");
+        }
+
+        Code = new CodeSource();
+        Services.AddSingleton(HookpipeOptions.FromCode(Code));
+
+        return Code;
+    }
 
     /// <summary>
     /// Applies <c>server.max_body_size</c> to the host's own server. <paramref name="apply"/> runs

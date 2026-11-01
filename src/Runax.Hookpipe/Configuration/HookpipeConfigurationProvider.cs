@@ -13,7 +13,7 @@ namespace Runax.Hookpipe.Configuration;
 /// </remarks>
 public sealed class HookpipeConfigurationProvider
 {
-    private readonly string _configurationPath;
+    private readonly string? _configurationPath;
     private readonly ILogger<HookpipeConfigurationProvider> _logger;
     private readonly HookpipeConfiguration _running;
     private volatile HookpipeConfiguration _configuration;
@@ -31,14 +31,17 @@ public sealed class HookpipeConfigurationProvider
     }
 
     /// <summary>
-    /// Takes over a configuration the host has already loaded from <paramref name="configurationPath"/>,
-    /// so the file isn't read twice. Reloads read the file again, as usual.
+    /// Takes over a configuration the host has already loaded, so the source isn't read twice.
+    /// Reloads read the file again, as usual.
     /// </summary>
-    /// <param name="configurationPath">Path to the YAML configuration file.</param>
-    /// <param name="configuration">The configuration already loaded from that file.</param>
+    /// <param name="configurationPath">
+    /// Path to the YAML configuration file, or null when the definitions were built in code. With
+    /// null there's nothing to re-read, so <see cref="Reload"/> does nothing.
+    /// </param>
+    /// <param name="configuration">The configuration already loaded from that source.</param>
     /// <param name="logger">Logger for reloads.</param>
     public HookpipeConfigurationProvider(
-        string configurationPath,
+        string? configurationPath,
         HookpipeConfiguration configuration,
         ILogger<HookpipeConfigurationProvider> logger)
     {
@@ -58,6 +61,8 @@ public sealed class HookpipeConfigurationProvider
     /// <returns>True when the new configuration was applied.</returns>
     public bool Reload()
     {
+        if (_configurationPath is null) return false;
+
         try
         {
             var next = ConfigurationLoader.Load(_configurationPath);

@@ -21,6 +21,12 @@ internal sealed class ConfigurationNodePath
     public static ConfigurationNodePath YamlRoot { get; } = new(string.Empty, colonSeparated: false);
 
     /// <summary>
+    /// The root of definitions built in code. Written like YAML's, so an error names the same place
+    /// whichever source a definition came from.
+    /// </summary>
+    public static ConfigurationNodePath CodeRoot => YamlRoot;
+
+    /// <summary>
     /// The path of a mapping entry under this path.
     /// </summary>
     public ConfigurationNodePath Child(string key)
