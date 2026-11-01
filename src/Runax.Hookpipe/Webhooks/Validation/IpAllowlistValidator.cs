@@ -3,14 +3,14 @@ using Runax.Hookpipe.Configuration;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 
-namespace Runax.Hookpipe.Validation;
+namespace Runax.Hookpipe.Webhooks.Validation;
 
 /// <summary>
 /// Validates requests by checking the remote IP address against an allowlist.
 /// The allowlist is read from an environment variable as a comma-separated list
 /// of IPs or CIDRs (e.g. "192.168.1.0/24,10.0.0.1").
 /// </summary>
-public sealed class IpAllowlistValidator(ILogger<IpAllowlistValidator> logger) : IValidator
+public sealed class IpAllowlistValidator(ILogger<IpAllowlistValidator> logger) : IWebhookValidator
 {
     /// <summary>
     /// The validator type identifier.

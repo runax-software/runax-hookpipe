@@ -18,6 +18,8 @@ src/Runax.Hookpipe/
   Publishing/          PublishWorker, PublishItem, PublishOutcome, PublishWorkerHost, BrokerPublisher,
                        LocalDeliveryTap (Phase 6)
   Webhooks/            WebhookHandler (was Services/WebhookHandler), RouteEvaluator, EnvelopeBuilder
+    Validation/        IWebhookValidator (was IValidator), ValidatorFactory, and the five
+                       validators, flat (unchanged logic, list form, secrets resolved at load)
   Conditions/          Condition model and evaluator (route.when, stream filters), JSONPath
                        compilation (JsonPath.Net), templates and their renderer
   Streams/             StreamRegistry, StreamWorker, StreamWorkerHost, StreamSubscription,
@@ -25,7 +27,6 @@ src/Runax.Hookpipe/
                        DedupeWindow, Debouncer (Phase 6)
     Protocols/         IStreamProtocol
       Sse/             SseProtocol, SseFrameWriter
-  Validation/          Validators (unchanged logic, list form, secrets resolved at load)
   Health/              Health checks, readiness, the /health/brokers and /health/streams JSON
   Diagnostics/         HookpipeDiagnostics: the Runax.Hookpipe Meter and ActivitySource
 ```

@@ -4,14 +4,14 @@ using Runax.Hookpipe.Configuration;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 
-namespace Runax.Hookpipe.Validation;
+namespace Runax.Hookpipe.Webhooks.Validation;
 
 /// <summary>
 /// Validates Stripe webhook signatures using Stripe's v1 signing scheme.
 /// Verifies both the HMAC-SHA256 signature and timestamp freshness.
 /// Header format: "t=timestamp,v1=signature"
 /// </summary>
-public sealed class StripeSignatureValidator(ILogger<StripeSignatureValidator> logger) : IValidator
+public sealed class StripeSignatureValidator(ILogger<StripeSignatureValidator> logger) : IWebhookValidator
 {
     private static readonly Encoding Utf8 = Encoding.UTF8;
     private const int DefaultToleranceSeconds = 300; // 5 minutes

@@ -4,7 +4,7 @@ using Runax.Hookpipe.Configuration;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 
-namespace Runax.Hookpipe.Validation;
+namespace Runax.Hookpipe.Webhooks.Validation;
 
 /// <summary>
 /// Validates requests by comparing the Authorization header's bearer token
@@ -12,7 +12,7 @@ namespace Runax.Hookpipe.Validation;
 /// Accepts both "Bearer &lt;token&gt;" and raw "&lt;token&gt;" formats.
 /// Uses constant-time comparison to prevent timing attacks.
 /// </summary>
-public sealed class BearerTokenValidator(ILogger<BearerTokenValidator> logger) : IValidator
+public sealed class BearerTokenValidator(ILogger<BearerTokenValidator> logger) : IWebhookValidator
 {
     private static readonly Encoding Utf8 = Encoding.UTF8;
 
