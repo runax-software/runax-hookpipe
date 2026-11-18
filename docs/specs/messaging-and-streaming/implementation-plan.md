@@ -28,6 +28,7 @@ src/Runax.Hookpipe/
     Protocols/         IStreamProtocol
       Sse/             SseProtocol, SseFrameWriter
   Health/              Health checks, readiness, the /health/brokers and /health/streams JSON
+                       (today's Brokers/Health/ moves here in PR 8)
   Diagnostics/         HookpipeDiagnostics: the Runax.Hookpipe Meter and ActivitySource
 ```
 
@@ -61,8 +62,8 @@ src/Runax.Hookpipe.Api/
 
 **Docs to update:**
 
-- AGENTS.md: it still says .NET 8. It needs the new project names, and its "adding a sink" steps
-  become "adding a broker type" and "adding a stream protocol".
+- AGENTS.md: its "adding a broker type" steps describe today's `IBroker` classes. They change with
+  Phase 4, and "adding a stream protocol" comes with Phase 5.
 - CONTRIBUTING.md and the root README ([§11.9](packaging.md#119-docs)).
 - `docs/configuration.md`, and a new `docs/upgrading.md`: the v1 → v2 guide the startup error links
   to ([§5.10](configuration.md#510-upgrading-from-v1)).
@@ -102,7 +103,6 @@ The remaining phases are split into pull requests in [pull-requests.md](pull-req
 **Why this order:**
 
 - **Phase 1 goes first** so every later phase lands in its final project and namespace once.
-  It's also where the broken Docker build gets fixed.
 - **Phase 3 comes before Phase 4.** The new execution model and the library swap land
   separately, so a regression points at one of them.
 

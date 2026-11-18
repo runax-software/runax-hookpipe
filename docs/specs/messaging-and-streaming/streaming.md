@@ -140,9 +140,10 @@ filter:                                               # any / all / not, as in w
   Shutdown is `event: hookpipe.shutdown`, a short `retry:`, then the connection closes.
 - **`max_connection_age`** (optional) closes long-lived connections, so clients rebalance
   across replicas after a scale-out.
-- **Implementation.** ASP.NET Core 10's `TypedResults.ServerSentEvents` / `SseItem<T>` is the
-  first choice if it can emit comment heartbeats and flush per frame. If it can't, the frame
-  writer is about 50 lines over `HttpResponse.BodyWriter`.
+- **Implementation.** The library targets `net8.0`, `net9.0`, and `net10.0`, so ASP.NET Core
+  10's `TypedResults.ServerSentEvents` can't be the only path. `SseFrameWriter` is about 50 lines
+  over `HttpResponse.BodyWriter`, works on all three, and keeps control of comment heartbeats and
+  per-frame flushing.
 
 **Things that bite with SSE:**
 
