@@ -25,8 +25,7 @@ Part of [Spec: Runax.Hookpipe: runax-messaging core, streaming, library and serv
 7. **An in-process tap. Resolved:** planned as an improvement, local delivery with dedupe and
    debounce ([§4.9](streaming.md#49-improvement-local-delivery-dedupe-and-debounce)), in Phase 6.
    It works with any number of replicas: other replicas still get the broker's copy.
-8. **Repository state.** `runax-hookpipe` is archived on GitHub. It needs to be unarchived
-   before any of this can be pushed.
+8. **Repository state. Resolved:** `runax-hookpipe` is unarchived and public.
 9. **An `IConfiguration` source. Resolved:** yes, in the first library release
    ([§5.12](configuration.md#512-appsettingsjson-and-other-iconfiguration-sources)). Key
    names match ignoring case and underscores, so there's no third key style to learn.

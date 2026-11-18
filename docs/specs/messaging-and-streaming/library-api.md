@@ -7,7 +7,7 @@ Expands [§11.4](packaging.md#114-the-library-api) into the concrete public surf
 | --- | --- |
 | **Status** | Draft |
 | **Date** | 2026-11-01 |
-| **Lands in** | Public-surface cleanup, then [PR C](pull-requests.md#2-pr-c-the-iconfiguration-source), then [PR D](pull-requests.md#3-pr-d-definitions-in-code) |
+| **Lands in** | Public-surface cleanup and PR D (done, [#8](https://github.com/runax-software/runax-hookpipe/pull/8) and [#10](https://github.com/runax-software/runax-hookpipe/pull/10)), then [PR C](pull-requests.md#2-pr-c-the-iconfiguration-source) and [PR D2](pull-requests.md#3b-pr-d2-configurebroker-and-custom-validators) |
 | **Frozen by** | [PR 11](pull-requests.md#11-first-nuget-release), which adds `PublicApiAnalyzers` and `PublicAPI.Shipped.txt` |
 
 Everything here is cheap to change now and expensive after PR 11. The surface is the deliverable;
@@ -106,8 +106,8 @@ hookpipe.ConfigureBroker("rabbit", b => b              // adjusts a broker defin
     .Retry(maxRetries: 3, delay: TimeSpan.FromSeconds(2), RetryBackoff.Exponential, factor: 2));
 ```
 
-- **`AddBroker` defines**, **`ConfigureBroker` adjusts** one that already exists in another source.
-  `ConfigureBroker` on an unknown ID is a load error.
+- **`AddBroker` defines** (done), **`ConfigureBroker` adjusts** one that already exists in another
+  source (PR D2). `ConfigureBroker` on an unknown ID is a load error.
 - **The library registers only `stdout` and `http`.** Every other broker type needs
   `AddBrokerType` ([§11.5](packaging.md#115-brokers-in-library-mode)); the service registers all of
   them through `AddAllBrokerTypes`.
@@ -263,7 +263,7 @@ validate:
   point of resolving secrets at startup ([§1](README.md#whats-wrong-today)).
 - The validator is resolved from DI, so it can take `ILogger<T>`, `IHttpClientFactory`, and so on.
 - The non-generic `IWebhookValidator` already exists, in `Runax.Hookpipe.Webhooks.Validation`
-  alongside `ValidatorFactory` and the five built-in validators, flat. PR D adds `TSettings`:
+  alongside `ValidatorFactory` and the five built-in validators, flat. PR D2 adds `TSettings`:
   today's `ValidateAsync(HttpContext, ValidatorConfiguration)` hands every validator the built-in
   `Header`/`Secret`/`Token`/`Key`/`Allow` shape, and each built-in moves to its own settings type.
 
@@ -335,11 +335,11 @@ All of these land before PR 11 freezes the API.
 
 | Change | Why |
 | --- | --- |
-| `HookpipeConfigurator`'s public constructor becomes internal | Constructing one outside `AddRunaxHookpipe` does nothing useful and defeats the call-once rule |
-| `EnvelopeBuilder` becomes internal | An implementation detail; §11.4 keeps everything but the three extension points internal |
-| `TakeServerMaxBodySize()` → `UseServerMaxBodySize(Action<long>)` | A getter that mutated state, with a name that didn't say so |
+| `HookpipeConfigurator`'s public constructor becomes internal **(done)** | Constructing one outside `AddRunaxHookpipe` does nothing useful and defeats the call-once rule |
+| `EnvelopeBuilder` becomes internal **(done)** | An implementation detail; §11.4 keeps everything but the three extension points internal |
+| `TakeServerMaxBodySize()` → `UseServerMaxBodySize(Action<long>)` **(done)** | A getter that mutated state, with a name that didn't say so |
 | `IValidator` → `IWebhookValidator` **(done)**, moved to `Webhooks/Validation/` in the `Runax.Hookpipe.Webhooks.Validation` namespace | Groups the validators with the feature that owns them |
-| `IWebhookValidator` → `IWebhookValidator<TSettings>` | Custom validators need their own settings, not the built-in field shape |
+| `IWebhookValidator` → `IWebhookValidator<TSettings>` (PR D2) | Custom validators need their own settings, not the built-in field shape |
 | `MapHookpipeWebhooks()` added **(done)**; `MapHookpipeStreams()` waits for Phase 5 | So webhooks and streams can carry different policies |
 | `InternalsVisibleTo DynamicProxyGenAssembly2` **(done)** | `Substitute.For<ILogger<T>>` needs it once `T` is internal, and most of the engine is |
 
@@ -349,23 +349,21 @@ All of these land before PR 11 freezes the API.
 | --- | --- |
 | `AddRunaxHookpipe`, `LoadYaml`, `MapHookpipe`, `MapHookpipeHealth` | Now |
 | The surface cleanup in §11, plus `MapHookpipeWebhooks` | **Done** |
+| `Paths`, `AddBroker`, `AddWebhook`, `Condition` factories, the route builder | **Done** (PR D, [#10](https://github.com/runax-software/runax-hookpipe/pull/10)) |
 | `LoadConfiguration(section)` | PR C |
-| `Paths`, `AddBroker`, `ConfigureBroker`, `AddWebhook`, `Condition` factories, `AddValidator<T>`, `IWebhookValidator<TSettings>` | PR D |
+| `ConfigureBroker`, `AddValidator<T>`, `IWebhookValidator<TSettings>` | PR D2 |
 | `AddBrokerType<TConfig>`, `UseBus`, `PartitionKey` | Phase 4 (PR 9) |
 | `AddStream`, `AddStreamProtocol<T>`, `IStreamProtocol` | Phase 5 (PRs 12–14), blocked on runax-messaging P1 and P6 |
 
 ## 13. Open questions
 
-1. **Does code go through a configuration source, or build the model directly?**
-   [§11.4](packaging.md#114-the-library-api) says code "goes through a source that builds the same
-   model and the same load-time checks as YAML". Taken literally that means fluent builders emit a
-   `ConfigurationNode` tree, which round-trips typed values through strings — a `TimeSpan` becomes
-   `"30s"` only to be parsed back. **Recommendation:** builders construct the typed model directly
-   and feed the same reference-and-invariant pass (§5.9); the binder's type and format checks are
-   unnecessary when the compiler already enforced them. Error paths stay the same
-   (`webhooks.github.validate[0]`), so messages don't regress.
-2. **Does `ConfigureBroker` compose with `publish` from YAML, or replace it?** Replacing is simpler
-   to reason about; composing is friendlier. Proposed: each key wins from whichever source set it,
-   and setting the same key in both is a load error — consistent with the `server` rule in §2.
-3. **Should `Drop()` be named for the YAML it mirrors (`to: none`)?** `.Drop()` reads better than
-   `.ToNone()`; the mapping table carries the connection.
+1. **Does code go through a configuration source, or build the model directly? Resolved:**
+   directly. Emitting a `ConfigurationNode` tree would round-trip typed values through strings (a
+   `TimeSpan` becoming `"30s"` only to be parsed back). `CodeSource` builds the typed model and runs
+   the same reference and invariant checks (`ConfigurationChecker`), with the same error paths
+   ([#10](https://github.com/runax-software/runax-hookpipe/pull/10)).
+2. **Does `ConfigureBroker` compose with `publish` from YAML, or replace it? Resolved:** it
+   composes. Each key wins from whichever source set it, and setting the same key in both is a load
+   error, consistent with the `server` rule in §2. PR D2 implements it.
+3. **Should `Drop()` be named for the YAML it mirrors (`to: none`)? Resolved:** no. `.Drop()`
+   shipped in #10; the mapping table carries the connection.

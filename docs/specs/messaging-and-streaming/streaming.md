@@ -58,6 +58,9 @@ The worker reads two channels:
 - **Control** (unbounded, low volume): `Subscribe`, `Unsubscribe`, and `Reconfigure` commands.
 - **Inbox** (bounded, `buffer.inbox`): events from the broker and, with local delivery, from
   this replica's publish workers ([§4.9](#49-improvement-local-delivery-dedupe-and-debounce)).
+  A broker event waits at most `buffer.inbox_wait` for room, then is dropped for this stream
+  only and reported to clients as a gap
+  ([§3.6](architecture.md#36-egress-broker--stream--clients)).
 
 It always drains control before taking the next event. Connects therefore never queue behind
 a burst. Because one loop handles both:
@@ -140,9 +143,10 @@ filter:                                               # any / all / not, as in w
   Shutdown is `event: hookpipe.shutdown`, a short `retry:`, then the connection closes.
 - **`max_connection_age`** (optional) closes long-lived connections, so clients rebalance
   across replicas after a scale-out.
-- **Implementation.** ASP.NET Core 10's `TypedResults.ServerSentEvents` / `SseItem<T>` is the
-  first choice if it can emit comment heartbeats and flush per frame. If it can't, the frame
-  writer is about 50 lines over `HttpResponse.BodyWriter`.
+- **Implementation.** The library targets `net8.0`, `net9.0`, and `net10.0`, so ASP.NET Core
+  10's `TypedResults.ServerSentEvents` can't be the only path. `SseFrameWriter` is about 50 lines
+  over `HttpResponse.BodyWriter`, works on all three, and keeps control of comment heartbeats and
+  per-frame flushing.
 
 **Things that bite with SSE:**
 
@@ -248,9 +252,16 @@ StreamWorker: the first copy wins; a later copy with the same message ID is drop
 Dedupe drops a second copy of the *same* message. Local delivery needs it, and it also absorbs
 broker redeliveries and producers that publish twice.
 
-- **Key.** `dedupe.key` is a template, by default `{header.hookpipe.message.id}` (the envelope
-  ID). Messages from other producers don't carry that header and pass through untouched. A
-  foreign producer's own ID works too, for example `dedupe.key: "{$.event_id}"`.
+- **Key.** `dedupe.key` is a template, by default `{topic}:{header.hookpipe.message.id}`: the
+  source topic and the envelope ID.
+  - **The topic is part of the key** because one envelope can be published to several topics
+    (`to: [kafka:payments, rabbit:alerts]`). Those are different events to a stream that reads
+    both, and must not be merged. A local copy and the broker's copy share a topic, so they
+    still match.
+  - **A key that doesn't resolve passes the message through.** Messages from other producers
+    don't carry `hookpipe.message.id`, so they're never deduplicated by default.
+  - **A foreign producer's own ID works too,** for example `dedupe.key: "{topic}:{$.event_id}"`.
+    Leave out `{topic}` only to merge copies of one event across topics on purpose.
 - **Window.** The worker remembers keys it has seen for `dedupe.window` (default `2m`), up to
   `dedupe.max_entries` (default 100,000), evicting the oldest first. At the cap that's on the
   order of 10 MB per stream.
@@ -294,7 +305,7 @@ These keys go on `streams.<id>` ([§5.8](configuration.md#58-streams)):
 | Key | Description | Default |
 | --- | --- | --- |
 | `local_delivery` | `after_publish`, `on_accept`, or `off` | `after_publish` |
-| `dedupe.key` | Template for the dedupe key | `{header.hookpipe.message.id}` |
+| `dedupe.key` | Template for the dedupe key | `{topic}:{header.hookpipe.message.id}` |
 | `dedupe.window` | How long keys are remembered | `2m` |
 | `dedupe.max_entries` | Cap on remembered keys | `100000` |
 | `debounce.key` | Template for the debounce key; turns debounce on | none |

@@ -14,15 +14,18 @@ and later are rough until Phase 3 is in.
 | [#2](https://github.com/runax-software/runax-hookpipe/pull/2) | 1 | Rename to `Runax.Hookpipe`, split the library from the service |
 | [#3](https://github.com/runax-software/runax-hookpipe/pull/3) | 2, PR A | Config v2: strict loader, interpolation, brokers and targets, `validate` lists, `route` conditions. Sinks become brokers, `Config` becomes `Configuration`, and the library registers with `AddRunaxHookpipe`. |
 | [#4](https://github.com/runax-software/runax-hookpipe/pull/4) | 2, PR B | Templates in topics, `message.metadata`, and condition values |
+| [#5](https://github.com/runax-software/runax-hookpipe/pull/5) | — | FluentAssertions → Shouldly |
+| [#6](https://github.com/runax-software/runax-hookpipe/pull/6) | 2, PR E | `server.max_body_size` and `webhooks.<id>.max_body_size`; `HOOKPIPE_MAX_BODY_SIZE_MB` is removed |
+| [#7](https://github.com/runax-software/runax-hookpipe/pull/7) | — | `IValidator` → `IWebhookValidator`, under `Webhooks/Validation` |
+| [#8](https://github.com/runax-software/runax-hookpipe/pull/8), [#9](https://github.com/runax-software/runax-hookpipe/pull/9) | — | The public-surface cleanup in [library-api.md §11](library-api.md#11-breaking-changes-to-todays-surface), and the library multi-targets `net8.0`, `net9.0`, and `net10.0` |
+| [#10](https://github.com/runax-software/runax-hookpipe/pull/10) | 2, PR D | Definitions in code: `Paths`, `AddBroker`, `AddWebhook`, `Condition` factories, and the route builder. Landed before PR C; the rest of the planned surface moved to [PR D2](#3b-pr-d2-configurebroker-and-custom-validators). |
 
 ## Order
 
 | # | Pull request | Phase | Needs | Size | Behavior change |
 | --- | --- | --- | --- | --- | --- |
-| 1 | [FluentAssertions → Shouldly](#1-fluentassertions--shouldly) | — | — | S | None (tests only) |
 | 2 | [PR C: the `IConfiguration` source](#2-pr-c-the-iconfiguration-source) | 2 | — | M | New feature |
-| 3 | [PR D: definitions in code](#3-pr-d-definitions-in-code) | 2 | 2 | M | New feature |
-| 4 | [PR E: `max_body_size`](#4-pr-e-max_body_size) | 2 | — | S | `HOOKPIPE_MAX_BODY_SIZE_MB` is removed |
+| 3b | [PR D2: `ConfigureBroker` and custom validators](#3b-pr-d2-configurebroker-and-custom-validators) | 2 | 2 | M | New feature; `IWebhookValidator` gains a settings type |
 | 5 | [Publish workers and delivery modes](#5-publish-workers-and-delivery-modes) | 3 | — | L | Per-broker ordering; 503 and 504 become possible |
 | 6 | [More workers and `order_by`](#6-more-workers-and-order_by) | 3 | 5 | M | New keys |
 | 7 | [Batching](#7-batching) | 3 | 5 | M | New keys |
@@ -36,31 +39,21 @@ and later are rough until Phase 3 is in.
 | 14 | [Stream health, metrics, and end-to-end tests](#14-stream-health-metrics-and-end-to-end-tests) | 5 | 13 | M | New `/health/streams` |
 | 15 | [Local delivery](#later) | 6 | 14 | M | Lower latency |
 
+Numbers are kept from the original plan so links stay stable; finished rows move to
+[Done](#done).
+
 **Why this order:**
 
-- **Shouldly first.** Every later PR adds tests. Landing the swap now means nothing has to be
-  converted twice.
-- **PR E doesn't depend on C or D.** It can go in any time before the first release.
-- **runax-messaging's Phase 0 runs alongside Phases 2 and 3.** It's another repository, and nothing
-  here needs it before Phase 4.
+- **PR C and D2 finish Phase 2.** Both change the public surface, so they land before PR 11 freezes
+  it. D2 needs C because `ConfigureBroker` adjusts brokers from any source, `IConfiguration`
+  included.
+- **runax-messaging's Phase 0 is the critical path.** It's another repository, so it runs alongside
+  Phases 2 and 3, but it should start now: PR 9 needs P2 for Kafka users, and Phase 5 needs P1 and
+  P6.
 - **Phase 3 runs on the existing `IBroker` classes,** as §10 plans. The new execution model and
   the library swap land separately, so a regression points at one of them.
 
 ## Phase 2: finish config v2
-
-### 1. FluentAssertions → Shouldly
-
-FluentAssertions 8 and later needs a paid license for commercial use. runax-messaging already uses
-Shouldly.
-
-- **The work is mostly done.** It's in the worktree `../runax-hookpipe-shouldly` on branch
-  `test/shouldly`, uncommitted, and three commits behind `main`.
-- **Rebase onto `main`, then convert what PR B added:**
-  - the new `Conditions/TemplateTests.cs` and `Webhooks/WebhookTemplateTests.cs`;
-  - PR B's new tests in `CompareConditionTests.cs`, `ConfigurationLoaderTests.cs`,
-    `EnvelopeBuilderTests.cs`, and `ApiMetricsTests.cs`.
-- **Already on the branch:** the package swap in `Directory.Packages.props`, plus AGENTS.md,
-  CONTRIBUTING.md, and §8 of the plan.
 
 ### 2. PR C: the `IConfiguration` source
 
@@ -87,34 +80,24 @@ Spec: [§5.12](configuration.md#512-appsettingsjson-and-other-iconfiguration-sou
   model.
 - **Docs:** a section in `docs/configuration.md`.
 
-### 3. PR D: definitions in code
+### 3b. PR D2: `ConfigureBroker` and custom validators
 
-Spec: [§11.4](packaging.md#114-the-library-api).
+Spec: [library-api.md §5](library-api.md#5-brokers-in-code) and
+[§8](library-api.md#8-extension-points). The rest of PR D, which landed in
+[#10](https://github.com/runax-software/runax-hookpipe/pull/10) without these.
 
-- **Webhooks:** `hookpipe.AddWebhook(id, webhook => …)`, with validators, `to`, `route`,
-  `message`, and `rate_limit`. Conditions are built with `Condition.JsonPath(…)`,
-  `Condition.Header(…)`, and the rest.
-- **Brokers:** brokers defined in code, and `ConfigureBroker(id, …)` for publish settings.
-- **Paths:** `hookpipe.Paths` instead of `server.paths`.
-- **Validators:** `AddValidator<T>(type)` makes custom validators an extension point, and
-  `IValidator` becomes the public `IWebhookValidator`.
-- **One model:** code goes through a source that builds the same model and the same load-time
-  checks as YAML. It's fixed for the life of the process, and IDs must be unique across all
-  sources.
-- **Later phases:** `AddStream` waits for Phase 5, and `UseBus` and `AddBrokerType` wait for
-  Phase 4.
-
-### 4. PR E: `max_body_size`
-
-Spec: [§5.3](configuration.md#53-server), [§5.6](configuration.md#56-webhooks),
-[§11.5](packaging.md#115-brokers-in-library-mode).
-
-- **`server.max_body_size`** (`25MB`) sets Kestrel's limit in the service. The library ignores it
-  with a warning.
-- **`webhooks.<id>.max_body_size`** is applied per request through
-  `IHttpMaxRequestBodySizeFeature`, returns 413 above the limit, and changes live on reload.
-- **Removed:** the `HOOKPIPE_MAX_BODY_SIZE_MB` environment variable. Add a row to
-  `docs/upgrading.md`; §13 already lists the change.
+- **`ConfigureBroker(id, …)`** adjusts the `publish` settings of a broker defined in another
+  source. An unknown ID is a load error. Each key comes from whichever source set it, and setting
+  the same key in two sources is a load error, as with `server` keys.
+- **Custom validators:**
+  - `IWebhookValidator` becomes `IWebhookValidator<TSettings>`, and each built-in validator gets
+    its own settings type instead of the shared `ValidatorConfiguration` shape;
+  - `AddValidator<T>(type)` registers one, resolved from DI;
+  - `.Validate<TSettings>(type, …)` in code, and `settings:` under a `validate` entry in YAML and
+    `IConfiguration`;
+  - settings bind like broker `settings`, and DataAnnotations errors carry the config path.
+- **Tests:** a custom validator from each source; a missing setting fails the load, not the
+  request.
 
 ## Phase 3: publish workers, still on `IBroker`
 
@@ -179,7 +162,11 @@ Spec: [§3.3](architecture.md#33-publish-workers-one-per-broker-by-default),
 - **Publishing a batch:**
   - `IBroker` gets a batch publish, which falls back to one at a time by default;
   - SQS uses `SendMessageBatch`, and RabbitMQ needs one confirm round trip per batch.
+- **Partial failures** follow [§3.5](architecture.md#35-publish-worker): accepted entries complete,
+  failed ones retry together, and nothing new is taken until they're done.
+  - `IBroker`'s batch publish returns a result per entry.
 - **New metric:** `hookpipe_publish_batch_size`.
+- **Tests:** a partial failure retries only the failed entries and publishes no duplicates.
 
 ### 8. Readiness and worker health
 

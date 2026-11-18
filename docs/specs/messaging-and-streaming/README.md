@@ -5,7 +5,7 @@
 | **Status** | Draft |
 | **Date** | 2026-10-27 |
 | **Replaces** | The hand-written `ISink` implementations, `SinkFactory`, config format v1, the `Hookpipe.Core` / `Hookpipe.API` project names, and the `hookpipe` image name |
-| **Depends on** | [runax-messaging](https://github.com/runax-software/runax-messaging) 2.x, plus the changes in [§7](messaging-prerequisites.md#7-prerequisite-changes-in-runax-messaging) |
+| **Depends on** | [runax-messaging](https://github.com/runax-software/runax-messaging) 3.x, plus the changes in [§7](messaging-prerequisites.md#7-prerequisite-changes-in-runax-messaging) |
 | **Roadmap** | Covers "Request buffering" and part of "OpenTelemetry tracing" (v0.4.0 in [TODO.md](../../../TODO.md)), and adds streaming |
 
 ## Summary
@@ -56,9 +56,10 @@
   format, and library users can also put it in `appsettings.json` or define it in code. The old
   `hookpipe` package is deleted once its two releases are copied to the new name, so there's
   only one package.
-- **Library work first.** Three runax-messaging changes block this: consumers registered from a
-  delegate with a runtime topic (P1), a partition key (P2), and adding consumers to any bus
-  outside its setup block (P6). The rest have workarounds (P3–P5, P7, P8).
+- **Library work first.** Two runax-messaging changes block streaming: consumers registered from a
+  delegate with a runtime topic (P1), and adding consumers to any bus outside its setup block (P6).
+  A partition key (P2) blocks the move to buses for Kafka users only. The rest have workarounds
+  (P3–P5, P7, P8).
 
 ## Documents
 

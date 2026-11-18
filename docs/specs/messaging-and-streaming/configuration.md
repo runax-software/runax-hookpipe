@@ -374,13 +374,14 @@ the same envelope. Each target counts a `template_unresolved`.
 | `cors.allowed_origins`, `cors.allow_credentials` | CORS for browser clients | none |
 | `event.name`, `event.data` | [§4.4](streaming.md#44-what-a-client-receives) | `"{topic}"`, `body` |
 | `buffer.inbox` | Bounded inbox between consumer and worker | `1024` |
+| `buffer.inbox_wait` | How long a broker event waits for room in a full inbox before this stream drops it and sends a gap ([§3.6](architecture.md#36-egress-broker--stream--clients)) | `1s` |
 | `buffer.replay` | Events kept for resume (`0` turns resume off) | `256` |
 | `buffer.per_client` | Outbox size per subscriber | `256` |
 | `buffer.slow_client` | `disconnect` or `drop_oldest` | `disconnect` |
 | `limits.max_clients` | 503 above this | `10000` |
 | `limits.max_connection_age` | Force a reconnect after this long | none |
 | `protocols.sse` | `heartbeat`, `retry`. Without a `protocols` block a stream serves SSE with these defaults; `sse: false` turns it off once another protocol exists. | `15s`, `3s` |
-| `local_delivery`, `dedupe.*`, `debounce.*` | In-memory delivery of this replica's own publishes, duplicate dropping, and merging events per key. An improvement in Phase 6 ([§4.9](streaming.md#49-improvement-local-delivery-dedupe-and-debounce)). | `after_publish`; dedupe on by message ID; debounce off |
+| `local_delivery`, `dedupe.*`, `debounce.*` | In-memory delivery of this replica's own publishes, duplicate dropping, and merging events per key. An improvement in Phase 6 ([§4.9](streaming.md#49-improvement-local-delivery-dedupe-and-debounce)). | `after_publish`; dedupe on by topic and message ID; debounce off |
 
 ## 5.9 Interpolation and load-time checks
 

@@ -75,9 +75,9 @@ samples/
 `Polly.Core`, `YamlDotNet`, and `JsonPath.Net`. It brings no broker SDKs, no prometheus-net, and no Serilog.
 Users add the runax-messaging transports they actually use.
 
-**Metrics move off prometheus-net.** Today `Hookpipe.Core` references prometheus-net and
-defines static counters in `HookpipeMetrics`. A library shouldn't pick the exporter, so they
-move to `System.Diagnostics.Metrics`. The service exports them, together with runax-messaging's
+**Metrics are on `System.Diagnostics.Metrics`.** v1's `Hookpipe.Core` referenced prometheus-net
+and defined static counters. A library shouldn't pick the exporter, so since Phase 1 they live on
+the `Runax.Hookpipe` meter. The service exports them, together with runax-messaging's
 meter, through prometheus-net's `MeterAdapter`. The exported names must be exactly the ones
 [§6.5](messaging-integration.md#65-telemetry) documents. A service test scrapes `/metrics` and
 asserts every documented name, so any renaming by the adapter gets caught instead of assumed.
@@ -234,10 +234,8 @@ it, and library users would hit the same wall.
   and for v2 it's part of the upgrade anyway. The README and the release notes say so.
 - **OCI labels:** `org.opencontainers.image.source`, which links the GHCR package to the
   repository, plus `title`, `version`, and `licenses`.
-- **Dockerfile:** it builds `src/Runax.Hookpipe.Api` and starts `Runax.Hookpipe.Api.dll`. It
-  also moves to the `10.0-alpine` base images. Today it still builds on `sdk:8.0-alpine` and
-  `aspnet:8.0-alpine` although the projects target net10.0, and `global.json` pins SDK 10, so
-  the image can't build as it stands.
+- **Dockerfile:** it builds `src/Runax.Hookpipe.Api`, starts `Runax.Hookpipe.Api.dll`, and uses
+  the `10.0-alpine` base images.
 - **Unchanged:** the container user (`hookpipe`), the `config/` path, and port 8080.
 
 ## 11.8 Releases

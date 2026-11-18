@@ -28,6 +28,7 @@ src/Runax.Hookpipe/
     Protocols/         IStreamProtocol
       Sse/             SseProtocol, SseFrameWriter
   Health/              Health checks, readiness, the /health/brokers and /health/streams JSON
+                       (today's Brokers/Health/ moves here in PR 8)
   Diagnostics/         HookpipeDiagnostics: the Runax.Hookpipe Meter and ActivitySource
 ```
 
@@ -61,8 +62,8 @@ src/Runax.Hookpipe.Api/
 
 **Docs to update:**
 
-- AGENTS.md: it still says .NET 8. It needs the new project names, and its "adding a sink" steps
-  become "adding a broker type" and "adding a stream protocol".
+- AGENTS.md: its "adding a broker type" steps describe today's `IBroker` classes. They change with
+  Phase 4, and "adding a stream protocol" comes with Phase 5.
 - CONTRIBUTING.md and the root README ([§11.9](packaging.md#119-docs)).
 - `docs/configuration.md`, and a new `docs/upgrading.md`: the v1 → v2 guide the startup error links
   to ([§5.10](configuration.md#510-upgrading-from-v1)).
@@ -76,7 +77,7 @@ src/Runax.Hookpipe.Api/
 | Broker unreachable at startup | Hookpipe warms every bus at startup and fails fast, as v1 does today. A broker marked `optional: true` starts degraded instead: readiness returns 503 and webhooks that target it get 503 for that target. |
 | Broker fails at runtime | Its workers retry per policy and their queues fill. Enqueues then wait and return 503, and readiness returns 503. Other brokers are unaffected. |
 | A worker loop crashes | Its in-flight items fail, the loop restarts with backoff, and an error is logged. `hookpipe_publish_worker_up` drops to 0 until it's back. |
-| Stream inbox full | Consumption slows through broker flow control. Nothing is dropped. |
+| Stream inbox full | Consumption slows through broker flow control for up to `buffer.inbox_wait`. Past that, this stream drops the event and sends its clients a gap; other streams on the topic are unaffected. |
 | Client too slow | Per `slow_client`. The client reconnects and resumes from the ring. |
 | Process crash | Queued publish items are lost (in memory). With `ack: delivered`, their callers got no 2xx and will retry. With `ack: enqueued` they're gone. That's the trade-off the mode states. |
 | Invalid config on reload | The previous config stays in force, as in v1, and the diff is logged. |
@@ -102,7 +103,6 @@ The remaining phases are split into pull requests in [pull-requests.md](pull-req
 **Why this order:**
 
 - **Phase 1 goes first** so every later phase lands in its final project and namespace once.
-  It's also where the broken Docker build gets fixed.
 - **Phase 3 comes before Phase 4.** The new execution model and the library swap land
   separately, so a regression points at one of them.
 
@@ -119,13 +119,15 @@ The remaining phases are split into pull requests in [pull-requests.md](pull-req
 - Loader: strict keys, interpolation, references, and the hot-reload diff.
 - v1 files are rejected with an error that names the file and links the upgrade guide.
 - `PublishWorker` with runax-messaging's TestKit (`MessagingTestHarness`): ordering under retry,
-  batching, abandoned items, `when_full`, `order_by` routing, drain on shutdown.
+  batching, partial batch failures, abandoned items, `when_full`, `order_by` routing, drain on
+  shutdown.
 - Conditions: every operator, typed and text equality, several selected values, `all`/`any`/`not`,
   JSONPath compile errors at load, templates with defaults, `template_invalid` topics.
 - Local delivery (Phase 6): the first copy wins, the dedupe window, a full inbox skipping the
-  local copy, both debounce modes.
+  local copy, one envelope on two topics reaching a stream twice, both debounce modes.
 - `StreamWorker`: sequence numbers, atomic subscribe and replay, gaps, both slow-client
-  policies, path-parameter filters.
+  policies, path-parameter filters, and a stream whose inbox stays full dropping only its own
+  events while a second stream on the same topic keeps receiving.
 - `SseFrameWriter`: multi-line data, comments, `retry`.
 
 **Integration tests:**
