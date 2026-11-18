@@ -162,7 +162,11 @@ Spec: [§3.3](architecture.md#33-publish-workers-one-per-broker-by-default),
 - **Publishing a batch:**
   - `IBroker` gets a batch publish, which falls back to one at a time by default;
   - SQS uses `SendMessageBatch`, and RabbitMQ needs one confirm round trip per batch.
+- **Partial failures** follow [§3.5](architecture.md#35-publish-worker): accepted entries complete,
+  failed ones retry together, and nothing new is taken until they're done.
+  - `IBroker`'s batch publish returns a result per entry.
 - **New metric:** `hookpipe_publish_batch_size`.
+- **Tests:** a partial failure retries only the failed entries and publishes no duplicates.
 
 ### 8. Readiness and worker health
 

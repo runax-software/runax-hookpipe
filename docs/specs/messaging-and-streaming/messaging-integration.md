@@ -136,7 +136,7 @@ Topics aren't a label anywhere: body-derived topics would make the label set unb
 | `hookpipe_stream_clients` | gauge | `stream_id`, `protocol` |
 | `hookpipe_stream_events_received_total` | counter | `stream_id`, `source` (`broker`, `local`) |
 | `hookpipe_stream_events_sent_total` | counter | `stream_id`, `protocol` |
-| `hookpipe_stream_events_dropped_total` | counter | `stream_id`, `reason` (`filtered`, `slow_client`, `duplicate`, `debounced`) |
+| `hookpipe_stream_events_dropped_total` | counter | `stream_id`, `reason` (`filtered`, `inbox_full`, `slow_client`, `duplicate`, `debounced`) |
 | `hookpipe_stream_local_skipped_total` | counter | `stream_id` (local copy skipped because the inbox was full) |
 | `hookpipe_stream_disconnects_total` | counter | `stream_id`, `protocol`, `reason` (`client`, `slow_client`, `max_age`, `shutdown`) |
 | `hookpipe_stream_resumes_total` | counter | `stream_id`, `result` (`replayed`, `gap`) |

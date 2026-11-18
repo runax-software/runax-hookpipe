@@ -46,7 +46,8 @@ GET /streams/…    └───────────────────
    - Each item goes to exactly one worker, picked by its `order_by` key (by default its topic).
 2. Only a broker's publish workers publish to it. Handlers never touch `IBus` directly.
 3. A worker publishes its items in queue order, and a retrying item blocks the items behind it
-   in that worker.
+   in that worker. The one exception is a batch that partly fails
+   ([§3.5](#35-publish-worker)).
    - With one worker, everything published to the broker keeps its order.
    - With several, items that share an `order_by` key do. By default that's every topic.
 4. Each stream has exactly one `StreamWorker`. It's the only code that assigns event IDs,
@@ -233,6 +234,19 @@ internal sealed class PublishWorker(string brokerId, int index, IBus bus, Broker
 - **Publishing.** `bus.PublishBatchAsync` is used when the batch has more than one item and
   runax-messaging supports per-message headers in batches (P4). Until then the worker publishes
   each item with `bus.PublishAsync(topic, payload, headers)`.
+- **Partial batch failures.** A batch publish can fail only some entries: SQS
+  `SendMessageBatch` reports per entry, and RabbitMQ confirms or nacks each message.
+  - Entries the broker accepted complete at once and are never sent again, so a partial failure
+    doesn't duplicate them.
+  - Only the failed entries are retried, together, in their original order. The worker takes
+    nothing new from its queue until they succeed or run out of retries.
+  - Retrying the failures means they can land after later entries of the same batch that
+    succeeded. Within a batch, ordering under partial failure is therefore best effort. Brokers
+    whose batches fail in order keep it anyway: Kafka with the idempotent producer, and SQS FIFO,
+    which fails the rest of a message group after its first failure. Anything else that needs
+    strict per-key order under failure should keep `batch.max_size: 1`. That's the default.
+  - A transport whose batch call can't report per entry treats the whole batch as failed, and
+    retrying it may duplicate entries. That's within the at-least-once contract.
 - **Retry.** The Polly pipeline from `brokers.<id>.publish.retry` wraps each publish call, and
   now honors the backoff type and factor. When retries run out, the worker fails the items with
   `PublishOutcome.Failed(exception)`, logs each envelope ID, and moves on. A dead-letter store is
@@ -257,12 +271,19 @@ Protocol adapter (one per connection) reads its outbox and writes frames to the 
 - **Acknowledging the broker.** The consumer delegate returns as soon as the inbox accepts the
   event, and the bus then acknowledges the broker message. Streams are a live feed: delivery to
   clients is at-most-once beyond what the replay buffer covers.
-- **Back-pressure toward the broker.** A full inbox makes the delegate wait. That slows
-  consumption through the broker's own flow control (RabbitMQ prefetch, Kafka poll), so nothing
-  is dropped before the worker sees it. The worker never blocks on a client (`TryWrite` only),
-  so the inbox drains as fast as the worker can filter.
-- **Several streams on one topic** each register their own delegate. runax-messaging groups
-  consumers by topic on the bus, so the broker sees one subscription.
+- **Back-pressure toward the broker, bounded.** A full inbox makes the delegate wait, up to
+  `buffer.inbox_wait` (default `1s`). That slows consumption through the broker's own flow control
+  (RabbitMQ prefetch, Kafka poll), so a short burst loses nothing. The worker never blocks on a
+  client (`TryWrite` only), so the inbox drains as fast as the worker can filter.
+- **A stuck stream can't stall its neighbours.** Several streams on one topic each register their
+  own delegate, and runax-messaging groups consumers by topic, so the broker sees one
+  subscription. The bus calls those delegates one after another and acknowledges the message only
+  after the last one returns, so an unbounded wait in one stream would hold up every other stream
+  on the topic. When `buffer.inbox_wait` runs out, the delegate returns without the event:
+  - only that stream misses it, counted as `hookpipe_stream_events_dropped_total{reason="inbox_full"}`;
+  - the worker learns of the miss through a counter the delegate increments, and sends its
+    subscribers a `GapFrame` before the next event, so clients know they missed something;
+  - the replay buffer never holds the missed event, so a resume across it also gets a gap.
 - **Local delivery (an improvement, [§4.9](streaming.md#49-improvement-local-delivery-dedupe-and-debounce)).**
   When this replica published the message itself, the stream can get it straight from the
   publish worker, before the broker delivers its copy. The worker then drops the broker's copy
